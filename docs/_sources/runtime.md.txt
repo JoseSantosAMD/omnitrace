@@ -1,4 +1,4 @@
-# Customizing Omnitrace Runtime
+# Configuring Omnitrace Runtime
 
 ```eval_rst
 .. toctree::
@@ -96,13 +96,17 @@ variable to be enabled (i.e., `OMNITRACE_USE_ROCPROFILER=ON`).
 Example configuration for hardware counters:
 
 ```console
+# using papi identifiers
+OMNITRACE_PAPI_EVENTS   = PAPI_TOT_CYC PAPI_TOT_INS
 
+# using perf identifiers
+OMNITRACE_PAPI_EVENTS   = perf::INSTRUCTIONS perf::CACHE-REFERENCES perf::CACHE-MISSES
 ```
 
 #### OMNITRACE_PAPI_EVENTS
 
 In order to collect the majority of hardware counters via PAPI, you need to make sure the `/proc/sys/kernel/perf_event_paranoid`
-has a value of less than 2. If you have sudo access, you can use the following command to modify the value:
+has a value <= 2. If you have sudo access, you can use the following command to modify the value:
 
 ```shell
 echo 0 | sudo tee /proc/sys/kernel/perf_event_paranoid
@@ -191,12 +195,11 @@ OMNITRACE_CRITICAL_TRACE                           = false
 OMNITRACE_CRITICAL_TRACE_BUFFER_COUNT              = 2000
 OMNITRACE_CRITICAL_TRACE_COUNT                     = 0
 OMNITRACE_CRITICAL_TRACE_DEBUG                     = false
-OMNITRACE_CRITICAL_TRACE_NUM_THREADS               = 8
+OMNITRACE_THREAD_POOL_SIZE                         = 8
 OMNITRACE_CRITICAL_TRACE_PER_ROW                   = 0
 OMNITRACE_CRITICAL_TRACE_SERIALIZE_NAMES           = false
 OMNITRACE_DEBUG                                    = false
 OMNITRACE_DL_VERBOSE                               = 0
-OMNITRACE_FLAT_SAMPLING                            = false
 OMNITRACE_INSTRUMENTATION_INTERVAL                 = 1
 OMNITRACE_KOKKOS_KERNEL_LOGGER                     = false
 OMNITRACE_PAPI_EVENTS                              = PAPI_TOT_CYC
@@ -206,17 +209,14 @@ OMNITRACE_PERFETTO_COMBINE_TRACES                  = true
 OMNITRACE_PERFETTO_FILE                            = perfetto-trace.proto
 OMNITRACE_PERFETTO_FILL_POLICY                     = discard
 OMNITRACE_PERFETTO_SHMEM_SIZE_HINT_KB              = 4096
-OMNITRACE_ROCTRACER_FLAT_PROFILE                   = false
 OMNITRACE_ROCTRACER_HSA_ACTIVITY                   = false
 OMNITRACE_ROCTRACER_HSA_API                        = false
 OMNITRACE_ROCTRACER_HSA_API_TYPES                  =
-OMNITRACE_ROCTRACER_TIMELINE_PROFILE               = false
 OMNITRACE_SAMPLING_CPUS                            =
 OMNITRACE_SAMPLING_DELAY                           = 0.5
 OMNITRACE_SAMPLING_FREQ                            = 10
 OMNITRACE_SAMPLING_GPUS                            = all
 OMNITRACE_TIME_OUTPUT                              = true
-OMNITRACE_TIMELINE_SAMPLING                        = false
 OMNITRACE_TIMEMORY_COMPONENTS                      = wall_clock
 OMNITRACE_TRACE_THREAD_LOCKS                       = false
 OMNITRACE_VERBOSE                                  = 0
@@ -252,7 +252,7 @@ OMNITRACE_STRICT_CONFIG                            = true
 OMNITRACE_SUPPRESS_CONFIG                          = true
 OMNITRACE_SUPPRESS_PARSING                         = true
 OMNITRACE_TEXT_OUTPUT                              = true
-OMNITRACE_TIME_FORMAT                              = %F_%I.%M_%p
+OMNITRACE_TIME_FORMAT                              = %F_%H.%M
 OMNITRACE_TIMELINE_PROFILE                         = false
 OMNITRACE_TIMING_PRECISION                         = 6
 OMNITRACE_TIMING_SCIENTIFIC                        = false
@@ -287,7 +287,7 @@ $ omnitrace-avail -S -bd
 | OMNITRACE_CRITICAL_TRACE_BUFFER_COUNT   | Number of critical trace records to ... |
 | OMNITRACE_CRITICAL_TRACE_COUNT          | Number of critical trace to export (... |
 | OMNITRACE_CRITICAL_TRACE_DEBUG          | Enable debugging for critical trace     |
-| OMNITRACE_CRITICAL_TRACE_NUM_THREADS    | Number of threads to use when genera... |
+| OMNITRACE_THREAD_POOL_SIZE              | Number of threads to use when genera... |
 | OMNITRACE_CRITICAL_TRACE_PER_ROW        | How many critical traces per row in ... |
 | OMNITRACE_CRITICAL_TRACE_SERIALIZE_N... | Include names in serialization of cr... |
 | OMNITRACE_DEBUG                         | Enable debug output                     |
@@ -297,7 +297,6 @@ $ omnitrace-avail -S -bd
 | OMNITRACE_ENABLE_SIGNAL_HANDLER         | Enable signals in timemory_init         |
 | OMNITRACE_FILE_OUTPUT                   | Write output to files                   |
 | OMNITRACE_FLAT_PROFILE                  | Set the label hierarchy mode to defa... |
-| OMNITRACE_FLAT_SAMPLING                 | Ignore hierarchy in all statistical ... |
 | OMNITRACE_INPUT_EXTENSIONS              | File extensions used when searching ... |
 | OMNITRACE_INPUT_PATH                    | Explicitly specify the input folder ... |
 | OMNITRACE_INPUT_PREFIX                  | Explicitly specify the prefix for in... |
@@ -328,11 +327,9 @@ $ omnitrace-avail -S -bd
 | OMNITRACE_PERFETTO_FILL_POLICY          | Behavior when perfetto buffer is ful... |
 | OMNITRACE_PERFETTO_SHMEM_SIZE_HINT_KB   | Hint for shared-memory buffer size i... |
 | OMNITRACE_PRECISION                     | Set the global output precision for ... |
-| OMNITRACE_ROCTRACER_FLAT_PROFILE        | Ignore hierarchy in all kernels entr... |
 | OMNITRACE_ROCTRACER_HSA_ACTIVITY        | Enable HSA activity tracing support     |
 | OMNITRACE_ROCTRACER_HSA_API             | Enable HSA API tracing support          |
 | OMNITRACE_ROCTRACER_HSA_API_TYPES       | HSA API type to collect                 |
-| OMNITRACE_ROCTRACER_TIMELINE_PROFILE    | Create unique entries for every kern... |
 | OMNITRACE_SAMPLING_CPUS                 | CPUs to collect frequency informatio... |
 | OMNITRACE_SAMPLING_DELAY                | Number of seconds to wait before the... |
 | OMNITRACE_SAMPLING_FREQ                 | Number of software interrupts per se... |
@@ -343,7 +340,6 @@ $ omnitrace-avail -S -bd
 | OMNITRACE_SUPPRESS_PARSING              | Disable parsing environment             |
 | OMNITRACE_TEXT_OUTPUT                   | Write text output files                 |
 | OMNITRACE_TIMELINE_PROFILE              | Set the label hierarchy mode to defa... |
-| OMNITRACE_TIMELINE_SAMPLING             | Create unique entries for every samp... |
 | OMNITRACE_TIMEMORY_COMPONENTS           | List of components to collect via ti... |
 | OMNITRACE_TIME_FORMAT                   | Customize the folder generation when... |
 | OMNITRACE_TIME_OUTPUT                   | Output data to subfolder w/ a timest... |
@@ -1200,21 +1196,20 @@ OMNITRACE_USE_PERFETTO          = $ENABLE
 OMNITRACE_USE_TIMEMORY          = $ENABLE
 OMNITRACE_USE_SAMPLING          = $SAMPLE
 OMNITRACE_USE_PROCESS_SAMPLING  = $SAMPLE
-OMNITRACE_CRITICAL_TRACE        = OFF
 
 # debug
 OMNITRACE_DEBUG                 = OFF
 OMNITRACE_VERBOSE               = 1
 
 # output fields
-OMNITRACE_OUTPUT_PATH           = omnitrace-example-output
+OMNITRACE_OUTPUT_PATH           = omnitrace-output
 OMNITRACE_OUTPUT_PREFIX         = %tag%/
 OMNITRACE_TIME_OUTPUT           = OFF
 OMNITRACE_USE_PID               = OFF
 
 # timemory fields
 OMNITRACE_PAPI_EVENTS           = PAPI_TOT_INS PAPI_FP_INS
-OMNITRACE_TIMEMORY_COMPONENTS   = wall_clock trip_count
+OMNITRACE_TIMEMORY_COMPONENTS   = wall_clock peak_rss trip_count
 OMNITRACE_MEMORY_UNITS          = MB
 OMNITRACE_TIMING_UNITS          = sec
 
@@ -1226,7 +1221,6 @@ OMNITRACE_SAMPLING_GPUS         = $env:HIP_VISIBLE_DEVICES
 
 # misc env variables (see metadata JSON file after run)
 $env:OMNITRACE_SAMPLING_KEEP_DYNINST_SUFFIX  = OFF
-$env:OMNITRACE_SAMPLING_KEEP_INTERNAL        = OFF
 ```
 
 ### Sample JSON Configuration File

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Omnitrace Output &mdash; omnitrace 1.3.0 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <title>Omnitrace Output &mdash; omnitrace 1.7.1 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
@@ -28,7 +28,7 @@
             <a href="index.html" class="icon icon-home"> omnitrace
           </a>
               <div class="version">
-                1.3.0
+                1.7.1
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -43,7 +43,12 @@
 <li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
 <li class="toctree-l1"><a class="reference internal" href="features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup and Validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime.html">Configuring Omnitrace Runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sampling.html">Call-Stack Sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumenting.html">Binary Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="critical_trace.html">Generating a Critical Trace</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Omnitrace Output</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#metadata">Metadata</a><ul>
@@ -63,8 +68,11 @@
 <li class="toctree-l4"><a class="reference internal" href="#timemory-text-output-example">Timemory Text Output Example</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#timemory-flat-json-output">Timemory Flat JSON Output</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#timemory-hierarchical-json-output">Timemory Hierarchical JSON Output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#timemory-json-output">Timemory JSON Output</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#timemory-json-output-sample">Timemory JSON Output Sample</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#timemory-json-output-python-post-processing-example">Timemory JSON Output Python Post-Processing Example</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -721,124 +729,299 @@ component explicitly sets type-traits which specify that the data is only releva
 </div>
 </div>
 </div>
-<div class="section" id="timemory-flat-json-output">
-<h3>Timemory Flat JSON Output<a class="headerlink" href="#timemory-flat-json-output" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="timemory-json-output">
+<h3>Timemory JSON Output<a class="headerlink" href="#timemory-json-output" title="Permalink to this headline">¶</a></h3>
 <blockquote>
-<div><p><em><strong>Hint: the generation of flat JSON output is configurable via <code class="docutils literal notranslate"><span class="pre">OMNITRACE_JSON_OUTPUT</span></code></strong></em></p>
+<div><p><em><strong>Hint: the generation of flat JSON output is configurable via <code class="docutils literal notranslate"><span class="pre">OMNITRACE_JSON_OUTPUT</span></code>.</strong></em>
+<em><strong>The generation of hierarchical JSON data is configurable via <code class="docutils literal notranslate"><span class="pre">OMNITRACE_TREE_OUTPUT</span></code>.</strong></em></p>
 </div></blockquote>
-<p>Timemory provides two JSON output formats. The flat JSON output files are similar to the text files: the hierarchical information
-is represented by the indentation of the <code class="docutils literal notranslate"><span class="pre">&quot;prefix&quot;</span></code> field and the <code class="docutils literal notranslate"><span class="pre">&quot;depth&quot;</span></code> field. All the data entries are in a single JSON array,
-e.g. the <code class="docutils literal notranslate"><span class="pre">[&quot;timemory&quot;][&quot;wall_clock&quot;][&quot;ranks&quot;][0][&quot;graph&quot;][&lt;N&gt;][&quot;prefix&quot;]</span></code> entry in the below:</p>
+<p>Timemory represents the data within the JSON output in two forms: a flat structure and a hierarchical structure.
+The flat JSON data represents the data similar to the text files: the hierarchical information
+is represented by the indentation of the <code class="docutils literal notranslate"><span class="pre">&quot;prefix&quot;</span></code> field and the <code class="docutils literal notranslate"><span class="pre">&quot;depth&quot;</span></code> field.
+The hierarchical JSON contains additional information with respect to inclusive and exclusive value, however,
+it’s structure requires processing through recursion. This section of the JSON supports analysis
+by <a class="reference external" href="https://github.com/hatchet/hatchet">hatchet</a>.
+All the data entries for the flat structure are in a single JSON array.
+This format is easier than the hierarchical format to write a simple Python script for post-processing.</p>
+<div class="section" id="timemory-json-output-sample">
+<h4>Timemory JSON Output Sample<a class="headerlink" href="#timemory-json-output-sample" title="Permalink to this headline">¶</a></h4>
+<p>In the JSON below, the flat data starts at <code class="docutils literal notranslate"><span class="pre">[&quot;timemory&quot;][&quot;wall_clock&quot;][&quot;ranks&quot;]</span></code>
+and the hierarchical data starts at <code class="docutils literal notranslate"><span class="pre">[&quot;timemory&quot;][&quot;wall_clock&quot;][&quot;graph&quot;]</span></code>.
+E.g., accessing the name (prefix) of the nth entry in the flat data layout is:
+<code class="docutils literal notranslate"><span class="pre">[&quot;timemory&quot;][&quot;wall_clock&quot;][&quot;ranks&quot;][0][&quot;graph&quot;][&lt;N&gt;][&quot;prefix&quot;]</span></code>. When full MPI
+support is enable, the per-rank data in flat layout will be represented
+in as an entry in the “ranks” array; in the hierarchical data structure,
+the per-rank data is represented as entry in the “mpi” array (but “graph”
+is used in lieu of “mpi” when full MPI support is enabled).
+In the hierarchical layout, all data for the process is all a child of a (dummy)
+root node (which has the name <code class="docutils literal notranslate"><span class="pre">unknown-hash=0</span></code>).</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
 <span class="w">    </span><span class="nt">&quot;timemory&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
 <span class="w">        </span><span class="nt">&quot;wall_clock&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">            </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Real-clock timer (i.e. wall-clock timer)&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">            </span><span class="nt">&quot;thread_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"></span>
-<span class="w">            </span><span class="nt">&quot;process_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
 <span class="w">            </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
 <span class="w">                </span><span class="nt">&quot;cereal_class_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">78</span><span class="p">,</span><span class="w"></span>
 <span class="w">                </span><span class="nt">&quot;enum&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;WALL_CLOCK&quot;</span><span class="p">,</span><span class="w"></span>
 <span class="w">                </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;wall_clock&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">                </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">78</span><span class="p">,</span><span class="w"></span>
 <span class="w">                </span><span class="nt">&quot;ids&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
 <span class="w">                    </span><span class="s2">&quot;real_clock&quot;</span><span class="p">,</span><span class="w"></span>
 <span class="w">                    </span><span class="s2">&quot;virtual_clock&quot;</span><span class="p">,</span><span class="w"></span>
 <span class="w">                    </span><span class="s2">&quot;wall_clock&quot;</span><span class="w"></span>
 <span class="w">                </span><span class="p">]</span><span class="w"></span>
 <span class="w">            </span><span class="p">},</span><span class="w"></span>
-<span class="w">            </span><span class="nt">&quot;mpi_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
-<span class="w">            </span><span class="nt">&quot;num_ranks&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">            </span><span class="nt">&quot;concurrency&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"></span>
-<span class="w">            </span><span class="nt">&quot;upcxx_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">            </span><span class="nt">&quot;unit_value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1000000000</span><span class="p">,</span><span class="w"></span>
-<span class="w">            </span><span class="nt">&quot;thread_scope_only&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
 <span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;wall_clock&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Real-clock timer (i.e. wall-clock timer)&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;unit_value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1000000000</span><span class="p">,</span><span class="w"></span>
 <span class="w">            </span><span class="nt">&quot;unit_repr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sec&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;thread_scope_only&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;thread_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;mpi_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;upcxx_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;process_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;num_ranks&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;concurrency&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"></span>
 <span class="w">            </span><span class="nt">&quot;ranks&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
 <span class="w">                </span><span class="p">{</span><span class="w"></span>
-<span class="w">                    </span><span class="nt">&quot;graph_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">173</span><span class="p">,</span><span class="w"></span>
 <span class="w">                    </span><span class="nt">&quot;rank&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                    </span><span class="nt">&quot;graph_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">112</span><span class="p">,</span><span class="w"></span>
 <span class="w">                    </span><span class="nt">&quot;graph&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
 <span class="w">                        </span><span class="p">{</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">17481650134347108265</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;prefix&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;|0&gt;&gt;&gt; main&quot;</span><span class="p">,</span><span class="w"></span>
 <span class="w">                            </span><span class="nt">&quot;depth&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
-<span class="w">                            </span><span class="nt">&quot;stats&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;min&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">13.360264917</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;sqr&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">178.49667865242102</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;sum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">13.360264917</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;stddev&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;max&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">13.360264917</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;cereal_class_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">13.360264917</span><span class="w"></span>
-<span class="w">                            </span><span class="p">},</span><span class="w"></span>
-<span class="w">                            </span><span class="nt">&quot;prefix&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;|00&gt;&gt;&gt; main&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">                            </span><span class="nt">&quot;rolling_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">17481650134347108265</span><span class="p">,</span><span class="w"></span>
 <span class="w">                            </span><span class="nt">&quot;entry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;repr_display&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">13.360264917</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13360264917</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;repr_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">13.360264917</span><span class="p">,</span><span class="w"></span>
 <span class="w">                                </span><span class="nt">&quot;cereal_class_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;accum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13360264917</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;laps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;laps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;accum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;repr_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;repr_display&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.894743517</span><span class="w"></span>
 <span class="w">                            </span><span class="p">},</span><span class="w"></span>
-<span class="w">                            </span><span class="nt">&quot;hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">17481650134347108265</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;stats&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;cereal_class_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;sum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;min&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;max&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;sqr&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8005659612135293</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;stddev&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="w"></span>
+<span class="w">                            </span><span class="p">},</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;rolling_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">17481650134347108265</span><span class="w"></span>
 <span class="w">                        </span><span class="p">},</span><span class="w"></span>
 <span class="w">                        </span><span class="p">{</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3455444288293231339</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;prefix&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;|0&gt;&gt;&gt; |_read_input&quot;</span><span class="p">,</span><span class="w"></span>
 <span class="w">                            </span><span class="nt">&quot;depth&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">                            </span><span class="nt">&quot;stats&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;min&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.924160502</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;max&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.924160502</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;sum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.924160502</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;stddev&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;sqr&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">119.33728267345688</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.924160502</span><span class="w"></span>
-<span class="w">                            </span><span class="p">},</span><span class="w"></span>
-<span class="w">                            </span><span class="nt">&quot;prefix&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;|00&gt;&gt;&gt; |_ompt_thread_initial&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">                            </span><span class="nt">&quot;rolling_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5142782188440775656</span><span class="p">,</span><span class="w"></span>
 <span class="w">                            </span><span class="nt">&quot;entry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;repr_display&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.924160502</span><span class="p">,</span><span class="w"></span>
 <span class="w">                                </span><span class="nt">&quot;laps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;accum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10924160502</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;repr_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.924160502</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10924160502</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9808</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;accum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9808</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;repr_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.808e-06</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;repr_display&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.808e-06</span><span class="w"></span>
 <span class="w">                            </span><span class="p">},</span><span class="w"></span>
-<span class="w">                            </span><span class="nt">&quot;hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6107876127803219007</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;stats&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;sum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.808e-06</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;min&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.808e-06</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;max&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.808e-06</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;sqr&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.6196864e-11</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.808e-06</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;stddev&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="w"></span>
+<span class="w">                            </span><span class="p">},</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;rolling_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2490350348930787988</span><span class="w"></span>
 <span class="w">                        </span><span class="p">},</span><span class="w"></span>
 <span class="w">                        </span><span class="p">{</span><span class="w"></span>
-<span class="w">                            </span><span class="nt">&quot;depth&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"></span>
-<span class="w">                            </span><span class="nt">&quot;stats&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;min&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.923050237</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;max&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.923050237</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;sum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.923050237</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;stddev&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;sqr&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">119.31302648002575</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.923050237</span><span class="w"></span>
-<span class="w">                            </span><span class="p">},</span><span class="w"></span>
-<span class="w">                            </span><span class="nt">&quot;prefix&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;|00&gt;&gt;&gt;   |_ompt_implicit_task&quot;</span><span class="p">,</span><span class="w"></span>
-<span class="w">                            </span><span class="nt">&quot;rolling_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2098840206724841601</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8456966793631718807</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;prefix&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;|0&gt;&gt;&gt; |_setcoeff&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;depth&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
 <span class="w">                            </span><span class="nt">&quot;entry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;repr_display&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.923050237</span><span class="p">,</span><span class="w"></span>
 <span class="w">                                </span><span class="nt">&quot;laps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;accum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10923050237</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;repr_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.923050237</span><span class="p">,</span><span class="w"></span>
-<span class="w">                                </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10923050237</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">922</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;accum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">922</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;repr_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.22e-07</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;repr_display&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.22e-07</span><span class="w"></span>
 <span class="w">                            </span><span class="p">},</span><span class="w"></span>
-<span class="w">                            </span><span class="nt">&quot;hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">15402802091993617561</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;stats&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;sum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.22e-07</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;min&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.22e-07</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;max&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.22e-07</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;sqr&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">8.50084e-13</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.22e-07</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;stddev&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="w"></span>
+<span class="w">                            </span><span class="p">},</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;rolling_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7491872854269275456</span><span class="w"></span>
 <span class="w">                        </span><span class="p">},</span><span class="w"></span>
+<span class="w">                        </span><span class="p">{</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6107876127803219007</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;prefix&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;|0&gt;&gt;&gt; |_ompt_thread_initial&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;depth&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;entry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;laps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">896506392</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;accum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">896506392</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;repr_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.896506392</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;repr_display&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.896506392</span><span class="w"></span>
+<span class="w">                            </span><span class="p">},</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;stats&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;sum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.896506392</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;min&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.896506392</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;max&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.896506392</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;sqr&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8037237108968578</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.896506392</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;stddev&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="w"></span>
+<span class="w">                            </span><span class="p">},</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;rolling_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5142782188440775656</span><span class="w"></span>
+<span class="w">                        </span><span class="p">},</span><span class="w"></span>
+<span class="w">                        </span><span class="p">{</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">15402802091993617561</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;prefix&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;|0&gt;&gt;&gt;   |_ompt_implicit_task&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;depth&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;entry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;laps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">896479111</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;accum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">896479111</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;repr_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.896479111</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;repr_display&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.896479111</span><span class="w"></span>
+<span class="w">                            </span><span class="p">},</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;stats&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;sum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.896479111</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;min&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.896479111</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;max&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.896479111</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;sqr&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8036747964593504</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.896479111</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;stddev&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="w"></span>
+<span class="w">                            </span><span class="p">},</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;rolling_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2098840206724841601</span><span class="w">                        </span><span class="p">},</span><span class="w"></span>
 <span class="w">                        </span><span class="p">{</span><span class="w"></span>
 <span class="w">                            </span><span class="nt">&quot;...&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;... etc. ...&quot;</span><span class="w"></span>
 <span class="w">                        </span><span class="p">}</span><span class="w"></span>
 <span class="w">                    </span><span class="p">]</span><span class="w"></span>
 <span class="w">                </span><span class="p">}</span><span class="w"></span>
+<span class="w">            </span><span class="p">],</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;graph&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">                </span><span class="p">[</span><span class="w"></span>
+<span class="w">                    </span><span class="p">{</span><span class="w"></span>
+<span class="w">                        </span><span class="nt">&quot;cereal_class_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                        </span><span class="nt">&quot;node&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;prefix&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;unknown-hash=0&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;tid&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">                                </span><span class="mi">0</span><span class="w"></span>
+<span class="w">                            </span><span class="p">],</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;pid&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">                                </span><span class="mi">2539175</span><span class="w"></span>
+<span class="w">                            </span><span class="p">],</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;depth&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;is_dummy&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;inclusive&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;entry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;laps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;accum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;repr_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;repr_display&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="w"></span>
+<span class="w">                                </span><span class="p">},</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;stats&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;sum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;min&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;max&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;sqr&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;stddev&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="w"></span>
+<span class="w">                                </span><span class="p">}</span><span class="w"></span>
+<span class="w">                            </span><span class="p">},</span><span class="w"></span>
+<span class="w">                            </span><span class="nt">&quot;exclusive&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;entry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;laps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;accum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;repr_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;repr_display&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.894743517</span><span class="w"></span>
+<span class="w">                                </span><span class="p">},</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;stats&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;sum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;min&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;max&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;sqr&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;stddev&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="w"></span>
+<span class="w">                                </span><span class="p">}</span><span class="w"></span>
+<span class="w">                            </span><span class="p">}</span><span class="w"></span>
+<span class="w">                        </span><span class="p">},</span><span class="w"></span>
+<span class="w">                        </span><span class="nt">&quot;children&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">                            </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;node&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">17481650134347108265</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;prefix&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;main&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;tid&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">                                        </span><span class="mi">0</span><span class="w"></span>
+<span class="w">                                    </span><span class="p">],</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;pid&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">                                        </span><span class="mi">2539175</span><span class="w"></span>
+<span class="w">                                    </span><span class="p">],</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;depth&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;is_dummy&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;inclusive&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                        </span><span class="nt">&quot;entry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;laps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;accum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;repr_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;repr_display&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.894743517</span><span class="w"></span>
+<span class="w">                                        </span><span class="p">},</span><span class="w"></span>
+<span class="w">                                        </span><span class="nt">&quot;stats&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;sum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;min&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;max&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;sqr&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8005659612135293</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.894743517</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;stddev&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="w"></span>
+<span class="w">                                        </span><span class="p">}</span><span class="w"></span>
+<span class="w">                                    </span><span class="p">},</span><span class="w"></span>
+<span class="w">                                    </span><span class="nt">&quot;exclusive&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                        </span><span class="nt">&quot;entry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;laps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1773605</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;accum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1773605</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;repr_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.001773605</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;repr_display&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.001773605</span><span class="w"></span>
+<span class="w">                                        </span><span class="p">},</span><span class="w"></span>
+<span class="w">                                        </span><span class="nt">&quot;stats&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;sum&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.001773605</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;min&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.22e-07</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;max&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.896506392</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;sqr&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.0031577497803754</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.001773605</span><span class="p">,</span><span class="w"></span>
+<span class="w">                                            </span><span class="nt">&quot;stddev&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="w"></span>
+<span class="w">                                        </span><span class="p">}</span><span class="w"></span>
+<span class="w">                                    </span><span class="p">}</span><span class="w"></span>
+<span class="w">                                </span><span class="p">},</span><span class="w"></span>
+<span class="w">                                </span><span class="nt">&quot;children&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">                                    </span><span class="p">{</span><span class="w"></span>
+<span class="w">                                        </span><span class="nt">&quot;...&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;... etc. ...&quot;</span><span class="w"></span>
+<span class="w">                                    </span><span class="p">}</span><span class="w"></span>
+<span class="w">                                </span><span class="p">]</span><span class="w"></span>
+<span class="w">                            </span><span class="p">}</span><span class="w"></span>
+<span class="w">                        </span><span class="p">]</span><span class="w"></span>
+<span class="w">                    </span><span class="p">}</span><span class="w"></span>
+<span class="w">                </span><span class="p">]</span><span class="w"></span>
 <span class="w">            </span><span class="p">]</span><span class="w"></span>
 <span class="w">        </span><span class="p">}</span><span class="w"></span>
 <span class="w">    </span><span class="p">}</span><span class="w"></span>
 <span class="p">}</span><span class="w"></span>
 </pre></div>
 </div>
-<p>This format is easier than the hierarchical format to write a simple Python script for post-processing, e.g.:</p>
+</div>
+<div class="section" id="timemory-json-output-python-post-processing-example">
+<h4>Timemory JSON Output Python Post-Processing Example<a class="headerlink" href="#timemory-json-output-python-post-processing-example" title="Permalink to this headline">¶</a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/usr/bin/env python3</span>
 
 <span class="kn">import</span> <span class="nn">sys</span>
@@ -902,14 +1085,6 @@ e.g. the <code class="docutils literal notranslate"><span class="pre">[&quot;tim
 </pre></div>
 </div>
 </div>
-<div class="section" id="timemory-hierarchical-json-output">
-<h3>Timemory Hierarchical JSON Output<a class="headerlink" href="#timemory-hierarchical-json-output" title="Permalink to this headline">¶</a></h3>
-<blockquote>
-<div><p><em><strong>Hint: the generation of hierarchical JSON output is configurable via <code class="docutils literal notranslate"><span class="pre">OMNITRACE_TREE_OUTPUT</span></code></strong></em></p>
-</div></blockquote>
-<p>The hierarchical JSON output (extension: <code class="docutils literal notranslate"><span class="pre">.tree.json</span></code>) contains the very similar data to the flat JSON output, however,
-it’s structure requires processing through recursion. The main use of these files are their analysis support
-by <a class="reference external" href="https://github.com/hatchet/hatchet">hatchet</a>.</p>
 </div>
 </div>
 </div>

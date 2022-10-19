@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>User API &mdash; omnitrace 1.3.0 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <title>User API &mdash; omnitrace 1.7.1 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
@@ -28,7 +28,7 @@
             <a href="index.html" class="icon icon-home"> omnitrace
           </a>
               <div class="version">
-                1.3.0
+                1.7.1
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -43,7 +43,12 @@
 <li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
 <li class="toctree-l1"><a class="reference internal" href="features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup and Validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime.html">Configuring Omnitrace Runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sampling.html">Call-Stack Sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumenting.html">Binary Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="critical_trace.html">Generating a Critical Trace</a></li>
 <li class="toctree-l1"><a class="reference internal" href="output.html">Omnitrace Output</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">User API</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#example">Example</a><ul>
@@ -84,106 +89,6 @@
   <div class="section" id="user-api">
 <h1>User API<a class="headerlink" href="#user-api" title="Permalink to this headline">¶</a></h1>
 <div class="breathe-sectiondef docutils container">
-<p class="breathe-sectiondef-title rubric" id="breathe-section-title-enums">Enums</p>
-<dl class="cpp enum">
-<dt id="_CPPv420OMNITRACE_USER_ERROR">
-<span id="_CPPv320OMNITRACE_USER_ERROR"></span><span id="_CPPv220OMNITRACE_USER_ERROR"></span><span class="target" id="d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58fab"></span><em class="property"><span class="pre">enum</span> </em><code class="sig-name descname"><span class="pre">OMNITRACE_USER_ERROR</span></code><a class="headerlink" href="#_CPPv420OMNITRACE_USER_ERROR" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Identifier for errors. </p>
-<p><em>Values:</em></p>
-<dl class="cpp enumerator">
-<dt id="_CPPv4N20OMNITRACE_USER_ERROR22OMNITRACE_USER_SUCCESSE">
-<span id="_CPPv3N20OMNITRACE_USER_ERROR22OMNITRACE_USER_SUCCESSE"></span><span id="_CPPv2N20OMNITRACE_USER_ERROR22OMNITRACE_USER_SUCCESSE"></span><span class="target" id="d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58faba3979008ff62785e77ec1c71f0ef8ca13"></span><em class="property"><span class="pre">enumerator</span> </em><code class="sig-name descname"><span class="pre">OMNITRACE_USER_SUCCESS</span></code><a class="headerlink" href="#_CPPv4N20OMNITRACE_USER_ERROR22OMNITRACE_USER_SUCCESSE" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>No error. </p>
-</dd></dl>
-
-<dl class="cpp enumerator">
-<dt id="_CPPv4N20OMNITRACE_USER_ERROR31OMNITRACE_USER_ERROR_NO_BINDINGE">
-<span id="_CPPv3N20OMNITRACE_USER_ERROR31OMNITRACE_USER_ERROR_NO_BINDINGE"></span><span id="_CPPv2N20OMNITRACE_USER_ERROR31OMNITRACE_USER_ERROR_NO_BINDINGE"></span><span class="target" id="d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58faba8930a61637964840879da2adea7a0f6a"></span><em class="property"><span class="pre">enumerator</span> </em><code class="sig-name descname"><span class="pre">OMNITRACE_USER_ERROR_NO_BINDING</span></code><a class="headerlink" href="#_CPPv4N20OMNITRACE_USER_ERROR31OMNITRACE_USER_ERROR_NO_BINDINGE" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Function pointer was not assigned. </p>
-</dd></dl>
-
-<dl class="cpp enumerator">
-<dt id="_CPPv4N20OMNITRACE_USER_ERROR41OMNITRACE_USER_ERROR_BAD_FUNCTION_POINTERE">
-<span id="_CPPv3N20OMNITRACE_USER_ERROR41OMNITRACE_USER_ERROR_BAD_FUNCTION_POINTERE"></span><span id="_CPPv2N20OMNITRACE_USER_ERROR41OMNITRACE_USER_ERROR_BAD_FUNCTION_POINTERE"></span><span class="target" id="d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58fabae443fe7d3d5f2832157406bb1a8a8b5e"></span><em class="property"><span class="pre">enumerator</span> </em><code class="sig-name descname"><span class="pre">OMNITRACE_USER_ERROR_BAD_FUNCTION_POINTER</span></code><a class="headerlink" href="#_CPPv4N20OMNITRACE_USER_ERROR41OMNITRACE_USER_ERROR_BAD_FUNCTION_POINTERE" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Provided function pointer was invalid. </p>
-</dd></dl>
-
-<dl class="cpp enumerator">
-<dt id="_CPPv4N20OMNITRACE_USER_ERROR37OMNITRACE_USER_ERROR_INVALID_CATEGORYE">
-<span id="_CPPv3N20OMNITRACE_USER_ERROR37OMNITRACE_USER_ERROR_INVALID_CATEGORYE"></span><span id="_CPPv2N20OMNITRACE_USER_ERROR37OMNITRACE_USER_ERROR_INVALID_CATEGORYE"></span><span class="target" id="d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58faba7912af4d017d7b0b7fae0ecf518634c2"></span><em class="property"><span class="pre">enumerator</span> </em><code class="sig-name descname"><span class="pre">OMNITRACE_USER_ERROR_INVALID_CATEGORY</span></code><a class="headerlink" href="#_CPPv4N20OMNITRACE_USER_ERROR37OMNITRACE_USER_ERROR_INVALID_CATEGORYE" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Invalid user binding category. </p>
-</dd></dl>
-
-<dl class="cpp enumerator">
-<dt id="_CPPv4N20OMNITRACE_USER_ERROR29OMNITRACE_USER_ERROR_INTERNALE">
-<span id="_CPPv3N20OMNITRACE_USER_ERROR29OMNITRACE_USER_ERROR_INTERNALE"></span><span id="_CPPv2N20OMNITRACE_USER_ERROR29OMNITRACE_USER_ERROR_INTERNALE"></span><span class="target" id="d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58faba5e1df2d9bd3efc093e460867484ea57c"></span><em class="property"><span class="pre">enumerator</span> </em><code class="sig-name descname"><span class="pre">OMNITRACE_USER_ERROR_INTERNAL</span></code><a class="headerlink" href="#_CPPv4N20OMNITRACE_USER_ERROR29OMNITRACE_USER_ERROR_INTERNALE" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Internal error occurred within libomnitrace. </p>
-</dd></dl>
-
-<dl class="cpp enumerator">
-<dt id="_CPPv4N20OMNITRACE_USER_ERROR25OMNITRACE_USER_ERROR_LASTE">
-<span id="_CPPv3N20OMNITRACE_USER_ERROR25OMNITRACE_USER_ERROR_LASTE"></span><span id="_CPPv2N20OMNITRACE_USER_ERROR25OMNITRACE_USER_ERROR_LASTE"></span><span class="target" id="d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58faba158e6e5763d922a3a6c5c18c10613d68"></span><em class="property"><span class="pre">enumerator</span> </em><code class="sig-name descname"><span class="pre">OMNITRACE_USER_ERROR_LAST</span></code><a class="headerlink" href="#_CPPv4N20OMNITRACE_USER_ERROR25OMNITRACE_USER_ERROR_LASTE" title="Permalink to this definition">¶</a><br /></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="cpp enum">
-<dt id="_CPPv423OMNITRACE_USER_BINDINGS">
-<span id="_CPPv323OMNITRACE_USER_BINDINGS"></span><span id="_CPPv223OMNITRACE_USER_BINDINGS"></span><span class="target" id="d8/ddb/user_8h_1ac2037f95663369e4bb26c0a1f3813f84"></span><em class="property"><span class="pre">enum</span> </em><code class="sig-name descname"><span class="pre">OMNITRACE_USER_BINDINGS</span></code><a class="headerlink" href="#_CPPv423OMNITRACE_USER_BINDINGS" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Identifier for function pointer categories. </p>
-<p><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">int</span> <span class="p">(</span><span class="o">*</span><span class="n">omnitrace_push_region_f</span><span class="p">)(</span><span class="n">const</span> <span class="n">char</span><span class="o">*</span><span class="p">)</span> <span class="o">=</span> <span class="n">nullptr</span><span class="p">;</span>
-
-<span class="nb">int</span> <span class="n">custom_push_region</span><span class="p">(</span><span class="n">const</span> <span class="n">char</span><span class="o">*</span> <span class="n">name</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="o">//</span> <span class="n">custom</span> <span class="n">push</span> <span class="n">region</span> <span class="n">prints</span> <span class="n">message</span> <span class="n">before</span> <span class="n">calling</span> <span class="n">internal</span> <span class="n">callback</span>
-    <span class="n">printf</span><span class="p">(</span><span class="s2">&quot;Pushing region </span><span class="si">%s</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">);</span>
-    <span class="k">return</span> <span class="p">(</span><span class="o">*</span><span class="n">omnitrace_push_region_f</span><span class="p">)(</span><span class="n">name</span><span class="p">);</span>
-<span class="p">}</span>
-
-<span class="nb">int</span> <span class="n">main</span><span class="p">(</span><span class="nb">int</span> <span class="n">argc</span><span class="p">,</span> <span class="n">char</span><span class="o">**</span> <span class="n">argv</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="o">//</span> <span class="n">get</span> <span class="n">the</span> <span class="n">internal</span> <span class="n">callback</span> <span class="n">to</span> <span class="n">start</span> <span class="n">a</span> <span class="n">user</span><span class="o">-</span><span class="n">defined</span> <span class="n">region</span>
-    <span class="n">omnitrace_user_get_callbacks</span><span class="p">(</span><span class="n">OMNITRACE_USER_REGION</span><span class="p">,</span>
-                                 <span class="p">(</span><span class="n">void</span><span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">omnitrace_push_region_f</span><span class="p">,</span>
-                                 <span class="n">nullptr</span><span class="p">);</span>
-    <span class="o">//</span> <span class="n">assign</span> <span class="n">the</span> <span class="n">custom</span> <span class="n">callback</span> <span class="n">to</span> <span class="n">start</span> <span class="n">a</span> <span class="n">user</span><span class="o">-</span><span class="n">defined</span> <span class="n">region</span>
-    <span class="k">if</span><span class="p">(</span><span class="n">omnitrace_push_region_f</span><span class="p">)</span>
-        <span class="n">omnitrace_user_configure</span><span class="p">(</span><span class="n">OMNITRACE_USER_REGION</span><span class="p">,</span>
-                                 <span class="p">(</span><span class="n">void</span><span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">custom_push_region</span><span class="p">,</span>
-                                 <span class="n">nullptr</span><span class="p">);</span>
-    <span class="o">//</span> <span class="o">...</span>
-<span class="p">}</span>
-</pre></div>
-</div>
- </p>
-<p><em>Values:</em></p>
-<dl class="cpp enumerator">
-<dt id="_CPPv4N23OMNITRACE_USER_BINDINGS25OMNITRACE_USER_START_STOPE">
-<span id="_CPPv3N23OMNITRACE_USER_BINDINGS25OMNITRACE_USER_START_STOPE"></span><span id="_CPPv2N23OMNITRACE_USER_BINDINGS25OMNITRACE_USER_START_STOPE"></span><span class="target" id="d8/ddb/user_8h_1ac2037f95663369e4bb26c0a1f3813f84aa45c05a3d3f66dba30da569ebefcf77c"></span><em class="property"><span class="pre">enumerator</span> </em><code class="sig-name descname"><span class="pre">OMNITRACE_USER_START_STOP</span></code><a class="headerlink" href="#_CPPv4N23OMNITRACE_USER_BINDINGS25OMNITRACE_USER_START_STOPE" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Function pointers which control global start/stop. </p>
-</dd></dl>
-
-<dl class="cpp enumerator">
-<dt id="_CPPv4N23OMNITRACE_USER_BINDINGS32OMNITRACE_USER_START_STOP_THREADE">
-<span id="_CPPv3N23OMNITRACE_USER_BINDINGS32OMNITRACE_USER_START_STOP_THREADE"></span><span id="_CPPv2N23OMNITRACE_USER_BINDINGS32OMNITRACE_USER_START_STOP_THREADE"></span><span class="target" id="d8/ddb/user_8h_1ac2037f95663369e4bb26c0a1f3813f84a4d5923e1a73e509aa977afad8206e4d4"></span><em class="property"><span class="pre">enumerator</span> </em><code class="sig-name descname"><span class="pre">OMNITRACE_USER_START_STOP_THREAD</span></code><a class="headerlink" href="#_CPPv4N23OMNITRACE_USER_BINDINGS32OMNITRACE_USER_START_STOP_THREADE" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Function pointers which control per-thread start/stop. </p>
-</dd></dl>
-
-<dl class="cpp enumerator">
-<dt id="_CPPv4N23OMNITRACE_USER_BINDINGS21OMNITRACE_USER_REGIONE">
-<span id="_CPPv3N23OMNITRACE_USER_BINDINGS21OMNITRACE_USER_REGIONE"></span><span id="_CPPv2N23OMNITRACE_USER_BINDINGS21OMNITRACE_USER_REGIONE"></span><span class="target" id="d8/ddb/user_8h_1ac2037f95663369e4bb26c0a1f3813f84ab521b9e3892ee5429034611739133ce2"></span><em class="property"><span class="pre">enumerator</span> </em><code class="sig-name descname"><span class="pre">OMNITRACE_USER_REGION</span></code><a class="headerlink" href="#_CPPv4N23OMNITRACE_USER_BINDINGS21OMNITRACE_USER_REGIONE" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Function pointers which generate user-defined regions. </p>
-</dd></dl>
-
-<dl class="cpp enumerator">
-<dt id="_CPPv4N23OMNITRACE_USER_BINDINGS28OMNITRACE_USER_BINDINGS_LASTE">
-<span id="_CPPv3N23OMNITRACE_USER_BINDINGS28OMNITRACE_USER_BINDINGS_LASTE"></span><span id="_CPPv2N23OMNITRACE_USER_BINDINGS28OMNITRACE_USER_BINDINGS_LASTE"></span><span class="target" id="d8/ddb/user_8h_1ac2037f95663369e4bb26c0a1f3813f84a561a33f1f01b054b2f8ce382ffe41642"></span><em class="property"><span class="pre">enumerator</span> </em><code class="sig-name descname"><span class="pre">OMNITRACE_USER_BINDINGS_LAST</span></code><a class="headerlink" href="#_CPPv4N23OMNITRACE_USER_BINDINGS28OMNITRACE_USER_BINDINGS_LASTE" title="Permalink to this definition">¶</a><br /></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-</div>
-<div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric" id="breathe-section-title-functions">Functions</p>
 <dl class="cpp function">
 <dt id="_CPPv426omnitrace_user_start_tracev">
@@ -191,7 +96,7 @@
 <dd><p>Enable tracing on this thread and all subsequently created threads. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p><a class="reference internal" href="#d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58fab"><span class="std std-ref">OMNITRACE_USER_ERROR</span></a> value </p>
+<dd class="field-odd"><p>OMNITRACE_USER_ERROR value </p>
 </dd>
 </dl>
 </dd></dl>
@@ -202,7 +107,7 @@
 <dd><p>Disable tracing on this thread and all subsequently created threads. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p><a class="reference internal" href="#d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58fab"><span class="std std-ref">OMNITRACE_USER_ERROR</span></a> value </p>
+<dd class="field-odd"><p>OMNITRACE_USER_ERROR value </p>
 </dd>
 </dl>
 </dd></dl>
@@ -213,7 +118,7 @@
 <dd><p>Enable tracing on this specific thread. Does not apply to subsequently created threads. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p><a class="reference internal" href="#d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58fab"><span class="std std-ref">OMNITRACE_USER_ERROR</span></a> value </p>
+<dd class="field-odd"><p>OMNITRACE_USER_ERROR value </p>
 </dd>
 </dl>
 </dd></dl>
@@ -224,7 +129,7 @@
 <dd><p>Disable tracing on this specific thread. Does not apply to subsequently created threads. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p><a class="reference internal" href="#d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58fab"><span class="std std-ref">OMNITRACE_USER_ERROR</span></a> value </p>
+<dd class="field-odd"><p>OMNITRACE_USER_ERROR value </p>
 </dd>
 </dl>
 </dd></dl>
@@ -238,7 +143,7 @@
 <dd class="field-odd"><p><strong>id</strong> – The string identifier for the region </p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><a class="reference internal" href="#d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58fab"><span class="std std-ref">OMNITRACE_USER_ERROR</span></a> value </p>
+<dd class="field-even"><p>OMNITRACE_USER_ERROR value </p>
 </dd>
 </dl>
 </dd></dl>
@@ -252,7 +157,7 @@
 <dd class="field-odd"><p><strong>id</strong> – The string identifier for the region </p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><a class="reference internal" href="#d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58fab"><span class="std std-ref">OMNITRACE_USER_ERROR</span></a> value </p>
+<dd class="field-even"><p>OMNITRACE_USER_ERROR value </p>
 </dd>
 </dl>
 </dd></dl>
@@ -264,13 +169,13 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>category</strong> – An <a class="reference internal" href="#d8/ddb/user_8h_1ac2037f95663369e4bb26c0a1f3813f84"><span class="std std-ref">OMNITRACE_USER_BINDINGS</span></a> value </p></li>
+<li><p><strong>category</strong> – An OMNITRACE_USER_BINDINGS value </p></li>
 <li><p><strong>begin_func</strong> – The pointer to the function which corresponds to “starting” the category, e.g. omnitrace_user_start_trace or omnitrace_user_push_region </p></li>
 <li><p><strong>end_func</strong> – The pointer to the function which corresponds to “ending” the category, e.g. omnitrace_user_stop_trace or omnitrace_user_pop_region </p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><a class="reference internal" href="#d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58fab"><span class="std std-ref">OMNITRACE_USER_ERROR</span></a> value </p>
+<dd class="field-even"><p>OMNITRACE_USER_ERROR value </p>
 </dd>
 </dl>
 </dd></dl>
@@ -282,13 +187,13 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>category</strong> – <strong>[in]</strong> An <a class="reference internal" href="#d8/ddb/user_8h_1ac2037f95663369e4bb26c0a1f3813f84"><span class="std std-ref">OMNITRACE_USER_BINDINGS</span></a> value </p></li>
+<li><p><strong>category</strong> – <strong>[in]</strong> An OMNITRACE_USER_BINDINGS value </p></li>
 <li><p><strong>begin_func</strong> – <strong>[out]</strong> The pointer to the function which corresponds to “starting” the category, e.g. omnitrace_user_start_trace or omnitrace_user_push_region </p></li>
 <li><p><strong>end_func</strong> – <strong>[out]</strong> The pointer to the function which corresponds to “ending” the category, e.g. omnitrace_user_stop_trace or omnitrace_user_pop_region </p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><a class="reference internal" href="#d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58fab"><span class="std std-ref">OMNITRACE_USER_ERROR</span></a> value </p>
+<dd class="field-even"><p>OMNITRACE_USER_ERROR value </p>
 </dd>
 </dl>
 </dd></dl>
@@ -302,7 +207,7 @@
 <dd class="field-odd"><p><strong>error_category</strong> – OMNITRACE_USER_ERROR value </p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><a class="reference internal" href="#d8/ddb/user_8h_1a15de0ccbe1e31c369cf7b1458ca58fab"><span class="std std-ref">OMNITRACE_USER_ERROR</span></a> value </p>
+<dd class="field-even"><p>OMNITRACE_USER_ERROR value </p>
 </dd>
 </dl>
 </dd></dl>

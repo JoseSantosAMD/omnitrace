@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Instrumenting with Omnitrace &mdash; omnitrace 1.3.0 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <title>Binary Instrumentation &mdash; omnitrace 1.7.1 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
@@ -16,8 +16,8 @@
     <link rel="author" title="About these documents" href="about.html" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Customizing Omnitrace Runtime" href="runtime.html" />
-    <link rel="prev" title="Nomenclature" href="nomenclature.html" /> 
+    <link rel="next" title="Generating a Critical Trace" href="critical_trace.html" />
+    <link rel="prev" title="Call-Stack Sampling" href="sampling.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -28,7 +28,7 @@
             <a href="index.html" class="icon icon-home"> omnitrace
           </a>
               <div class="version">
-                1.3.0
+                1.7.1
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -43,34 +43,40 @@
 <li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
 <li class="toctree-l1"><a class="reference internal" href="features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1 current"><a class="reference internal" href="getting_started.html">Getting Started</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="setup.html">Setup</a></li>
-<li class="toctree-l2"><a class="reference internal" href="nomenclature.html">Nomenclature</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Instrumenting with Omnitrace</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#omnitrace-executable">omnitrace Executable</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#runtime-instrumentation">Runtime Instrumentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#attaching-to-running-process">Attaching to Running Process</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#binary-rewrite">Binary Rewrite</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#binary-rewriting-a-library">Binary Rewriting a Library</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#binary-rewriting-a-library-example">Binary Rewriting a Library Example</a></li>
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup and Validation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime.html">Configuring Omnitrace Runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sampling.html">Call-Stack Sampling</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Binary Instrumentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#omnitrace-executable">omnitrace Executable</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#runtime-instrumentation">Runtime Instrumentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#attaching-to-running-process">Attaching to Running Process</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#binary-rewrite">Binary Rewrite</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#binary-rewriting-a-library">Binary Rewriting a Library</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#binary-rewriting-a-library-example">Binary Rewriting a Library Example</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#selective-instrumentation">Selective Instrumentation</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#viewing-the-available-instrumented-excluded-and-overlapping-functions">Viewing the Available, Instrumented, Excluded, and Overlapping Functions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#excluding-and-including-modules-and-functions">Excluding and Including Modules and Functions</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#sampling">Sampling</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#embedding-a-default-configuration">Embedding a Default Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#selective-instrumentation">Selective Instrumentation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#viewing-the-available-instrumented-excluded-and-overlapping-functions">Viewing the Available, Instrumented, Excluded, and Overlapping Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#excluding-and-including-modules-and-functions">Excluding and Including Modules and Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#example-available-module-and-function-info-output">Example Available Module and Function Info Output</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#example-instrumented-module-and-function-info-output">Example Instrumented Module and Function Info Output</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="runtime.html">Customizing Omnitrace Runtime</a></li>
-<li class="toctree-l2"><a class="reference internal" href="critical_trace.html">Generating a Critical Trace</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#sampling">Sampling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#embedding-a-default-configuration">Embedding a Default Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#checking-for-rpath">Checking for RPATH</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#modifying-rpath">Modifying RPATH</a></li>
 </ul>
 </li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="critical_trace.html">Generating a Critical Trace</a></li>
 <li class="toctree-l1"><a class="reference internal" href="output.html">Omnitrace Output</a></li>
 <li class="toctree-l1"><a class="reference internal" href="user_api.html">User API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="python.html">Python Support</a></li>
@@ -91,8 +97,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-          <li><a href="getting_started.html">Getting Started</a> &raquo;</li>
-      <li>Instrumenting with Omnitrace</li>
+      <li>Binary Instrumentation</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/instrumenting.md.txt" rel="nofollow"> View page source</a>
       </li>
@@ -102,157 +107,162 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="section" id="instrumenting-with-omnitrace">
-<h1>Instrumenting with Omnitrace<a class="headerlink" href="#instrumenting-with-omnitrace" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="binary-instrumentation">
+<h1>Binary Instrumentation<a class="headerlink" href="#binary-instrumentation" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
 </div>
 <div class="section" id="omnitrace-executable">
 <h2>omnitrace Executable<a class="headerlink" href="#omnitrace-executable" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div><p><em><strong>NOTE: With the introduction of <code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span></code>, in future versions of omnitrace, the current <code class="docutils literal notranslate"><span class="pre">omnitrace</span></code> executable</strong></em>
+<em><strong>noted below will likely be renamed to <code class="docutils literal notranslate"><span class="pre">omnitrace-instrument</span></code> and a new <code class="docutils literal notranslate"><span class="pre">omnitrace</span></code> executable will serve as a common</strong></em>
+<em><strong>executable for multiple executables, e.g. <code class="docutils literal notranslate"><span class="pre">omnitrace</span> <span class="pre">sample</span> <span class="pre">...</span></code>, <code class="docutils literal notranslate"><span class="pre">omnitrace</span> <span class="pre">run</span> <span class="pre">...</span></code>, <code class="docutils literal notranslate"><span class="pre">omnitrace</span> <span class="pre">rewrite</span> <span class="pre">...</span></code>, etc.</strong></em></p>
+</div></blockquote>
 <p>Instrumentation is performed with the <code class="docutils literal notranslate"><span class="pre">omnitrace</span></code> executable. View the help menu with the <code class="docutils literal notranslate"><span class="pre">-h</span></code> / <code class="docutils literal notranslate"><span class="pre">--help</span></code> option:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ omnitrace --help
-<span class="o">[</span>omnitrace<span class="o">]</span> Usage: omnitrace   <span class="o">[</span> --help <span class="o">(</span>count: <span class="m">0</span>, dtype: bool<span class="o">)</span>
-                                 --debug <span class="o">(</span>max: <span class="m">1</span>, dtype: bool<span class="o">)</span>
-                                 --verbose <span class="o">(</span>max: <span class="m">1</span>, dtype: bool<span class="o">)</span>
-                                 --error <span class="o">(</span>max: <span class="m">1</span>, dtype: boolean<span class="o">)</span>
-                                 --simulate <span class="o">(</span>max: <span class="m">1</span>, dtype: bool<span class="o">)</span>
-                                 --print-format <span class="o">(</span>min: <span class="m">1</span>, dtype: string<span class="o">)</span>
-                                 --print-dir <span class="o">(</span>count: <span class="m">1</span>, dtype: string<span class="o">)</span>
-                                 --print-available <span class="o">(</span>count: <span class="m">1</span><span class="o">)</span>
-                                 --print-instrumented <span class="o">(</span>count: <span class="m">1</span><span class="o">)</span>
-                                 --print-excluded <span class="o">(</span>count: <span class="m">1</span><span class="o">)</span>
-                                 --print-overlapping <span class="o">(</span>count: <span class="m">1</span><span class="o">)</span>
-                                 --output <span class="o">(</span>count: <span class="m">1</span><span class="o">)</span>
-                                 --pid <span class="o">(</span>count: <span class="m">1</span>, dtype: int<span class="o">)</span>
-                                 --mode <span class="o">(</span>count: <span class="m">1</span><span class="o">)</span>
-                                 --command <span class="o">(</span>count: <span class="m">1</span><span class="o">)</span>
-                                 --prefer <span class="o">(</span>count: <span class="m">1</span><span class="o">)</span>
-                                 --library <span class="o">(</span>count: unlimited<span class="o">)</span>
-                                 --main-function <span class="o">(</span>count: <span class="m">1</span><span class="o">)</span>
-                                 --driver <span class="o">(</span>max: <span class="m">1</span>, dtype: boolean<span class="o">)</span>
-                                 --load <span class="o">(</span>count: unlimited, dtype: string<span class="o">)</span>
-                                 --load-instr <span class="o">(</span>count: unlimited, dtype: filepath<span class="o">)</span>
-                                 --init-functions <span class="o">(</span>count: unlimited, dtype: string<span class="o">)</span>
-                                 --fini-functions <span class="o">(</span>count: unlimited, dtype: string<span class="o">)</span>
-                                 --function-include <span class="o">(</span>count: unlimited<span class="o">)</span>
-                                 --function-exclude <span class="o">(</span>count: unlimited<span class="o">)</span>
-                                 --module-include <span class="o">(</span>count: unlimited<span class="o">)</span>
-                                 --module-exclude <span class="o">(</span>count: unlimited<span class="o">)</span>
-                                 --label <span class="o">(</span>count: unlimited, dtype: string<span class="o">)</span>
-                                 --default-components <span class="o">(</span>count: unlimited, dtype: string<span class="o">)</span>
-                                 --env <span class="o">(</span>count: unlimited<span class="o">)</span>
-                                 --mpi <span class="o">(</span>max: <span class="m">1</span>, dtype: bool<span class="o">)</span>
-                                 --instrument-loops <span class="o">(</span>max: <span class="m">1</span>, dtype: boolean<span class="o">)</span>
-                                 --min-address-range <span class="o">(</span>count: <span class="m">1</span>, dtype: int<span class="o">)</span>
-                                 --min-address-range-loop <span class="o">(</span>count: <span class="m">1</span>, dtype: int<span class="o">)</span>
-                                 --dynamic-callsites <span class="o">(</span>max: <span class="m">1</span>, dtype: boolean<span class="o">)</span>
-                                 --traps <span class="o">(</span>max: <span class="m">1</span>, dtype: bool<span class="o">)</span>
-                                 --loop-traps <span class="o">(</span>max: <span class="m">1</span>, dtype: bool<span class="o">)</span>
-                                 --allow-overlapping <span class="o">(</span>count: <span class="m">0</span>, dtype: bool<span class="o">)</span>
-                                 --batch-size <span class="o">(</span>count: <span class="m">1</span>, dtype: int<span class="o">)</span>
-                                 --dyninst-options <span class="o">(</span>count: unlimited<span class="o">)</span>
-                               <span class="o">]</span> -- &lt;CMD&gt; &lt;ARGS&gt;
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>omnitrace --help
+<span class="go">[omnitrace] Usage: omnitrace   [ --help (count: 0, dtype: bool)</span>
+<span class="go">                                 --debug (max: 1, dtype: bool)</span>
+<span class="go">                                 --verbose (max: 1, dtype: bool)</span>
+<span class="go">                                 --error (max: 1, dtype: boolean)</span>
+<span class="go">                                 --simulate (max: 1, dtype: bool)</span>
+<span class="go">                                 --print-format (min: 1, dtype: string)</span>
+<span class="go">                                 --print-dir (count: 1, dtype: string)</span>
+<span class="go">                                 --print-available (count: 1)</span>
+<span class="go">                                 --print-instrumented (count: 1)</span>
+<span class="go">                                 --print-excluded (count: 1)</span>
+<span class="go">                                 --print-overlapping (count: 1)</span>
+<span class="go">                                 --output (count: 1)</span>
+<span class="go">                                 --pid (count: 1, dtype: int)</span>
+<span class="go">                                 --mode (count: 1)</span>
+<span class="go">                                 --command (count: 1)</span>
+<span class="go">                                 --prefer (count: 1)</span>
+<span class="go">                                 --library (count: unlimited)</span>
+<span class="go">                                 --main-function (count: 1)</span>
+<span class="go">                                 --driver (max: 1, dtype: boolean)</span>
+<span class="go">                                 --load (count: unlimited, dtype: string)</span>
+<span class="go">                                 --load-instr (count: unlimited, dtype: filepath)</span>
+<span class="go">                                 --init-functions (count: unlimited, dtype: string)</span>
+<span class="go">                                 --fini-functions (count: unlimited, dtype: string)</span>
+<span class="go">                                 --function-include (count: unlimited)</span>
+<span class="go">                                 --function-exclude (count: unlimited)</span>
+<span class="go">                                 --module-include (count: unlimited)</span>
+<span class="go">                                 --module-exclude (count: unlimited)</span>
+<span class="go">                                 --label (count: unlimited, dtype: string)</span>
+<span class="go">                                 --default-components (count: unlimited, dtype: string)</span>
+<span class="go">                                 --env (count: unlimited)</span>
+<span class="go">                                 --mpi (max: 1, dtype: bool)</span>
+<span class="go">                                 --instrument-loops (max: 1, dtype: boolean)</span>
+<span class="go">                                 --min-address-range (count: 1, dtype: int)</span>
+<span class="go">                                 --min-address-range-loop (count: 1, dtype: int)</span>
+<span class="go">                                 --dynamic-callsites (max: 1, dtype: boolean)</span>
+<span class="go">                                 --traps (max: 1, dtype: bool)</span>
+<span class="go">                                 --loop-traps (max: 1, dtype: bool)</span>
+<span class="go">                                 --allow-overlapping (count: 0, dtype: bool)</span>
+<span class="go">                                 --batch-size (count: 1, dtype: int)</span>
+<span class="go">                                 --dyninst-options (count: unlimited)</span>
+<span class="go">                               ] -- &lt;CMD&gt; &lt;ARGS&gt;</span>
 
-Options:
-    -h, -?, --help                 Shows this page
+<span class="go">Options:</span>
+<span class="go">    -h, -?, --help                 Shows this page</span>
 
-    <span class="o">[</span>DEBUG OPTIONS<span class="o">]</span>
+<span class="go">    [DEBUG OPTIONS]</span>
 
-    --debug                        Debug output
-    -v, --verbose                  Verbose output
-    -e, --error                    All warnings produce runtime errors
-    --simulate                     Exit after outputting diagnostic <span class="o">{</span>available,instrumented,excluded,overlapping<span class="o">}</span> module
-                                   <span class="k">function</span> lists, e.g. available-instr.txt
-    --print-format <span class="o">[</span> json <span class="p">|</span> txt <span class="p">|</span> xml <span class="o">]</span>
-                                   Output format <span class="k">for</span> diagnostic <span class="o">{</span>available,instrumented,excluded,overlapping<span class="o">}</span> module
-                                   <span class="k">function</span> lists, e.g. <span class="o">{</span>print-dir<span class="o">}</span>/available-instr.txt
-    --print-dir                    Output directory <span class="k">for</span> diagnostic <span class="o">{</span>available,instrumented,excluded,overlapping<span class="o">}</span> module
-                                   <span class="k">function</span> lists, e.g. <span class="o">{</span>print-dir<span class="o">}</span>/available-instr.txt
-    --print-available <span class="o">[</span> functions <span class="p">|</span> functions+ <span class="p">|</span> modules <span class="p">|</span> pair <span class="p">|</span> pair+ <span class="o">]</span>
-                                   Print the available entities <span class="k">for</span> instrumentation <span class="o">(</span>functions, modules, or module-function
-                                   pair<span class="o">)</span> to stdout applying regular expressions and <span class="nb">exit</span>
-    --print-instrumented <span class="o">[</span> functions <span class="p">|</span> functions+ <span class="p">|</span> modules <span class="p">|</span> pair <span class="p">|</span> pair+ <span class="o">]</span>
-                                   Print the instrumented entities <span class="o">(</span>functions, modules, or module-function pair<span class="o">)</span> to stdout
-                                   after applying regular expressions and <span class="nb">exit</span>
-    --print-excluded <span class="o">[</span> functions <span class="p">|</span> functions+ <span class="p">|</span> modules <span class="p">|</span> pair <span class="p">|</span> pair+ <span class="o">]</span>
-                                   Print the entities <span class="k">for</span> instrumentation <span class="o">(</span>functions, modules, or module-function pair<span class="o">)</span>
-                                   which are excluded from the instrumentation to stdout after applying regular expressions
-                                   and <span class="nb">exit</span>
-    --print-overlapping <span class="o">[</span> functions <span class="p">|</span> functions+ <span class="p">|</span> modules <span class="p">|</span> pair <span class="p">|</span> pair+ <span class="o">]</span>
-                                   Print the entities <span class="k">for</span> instrumentation <span class="o">(</span>functions, modules, or module-function pair<span class="o">)</span>
-                                   which overlap other <span class="k">function</span> calls or have multiple entry points to stdout applying
-                                   regular expressions and <span class="nb">exit</span>
+<span class="go">    --debug                        Debug output</span>
+<span class="go">    -v, --verbose                  Verbose output</span>
+<span class="go">    -e, --error                    All warnings produce runtime errors</span>
+<span class="go">    --simulate                     Exit after outputting diagnostic {available,instrumented,excluded,overlapping} module</span>
+<span class="go">                                   function lists, e.g. available-instr.txt</span>
+<span class="go">    --print-format [ json | txt | xml ]</span>
+<span class="go">                                   Output format for diagnostic {available,instrumented,excluded,overlapping} module</span>
+<span class="go">                                   function lists, e.g. {print-dir}/available-instr.txt</span>
+<span class="go">    --print-dir                    Output directory for diagnostic {available,instrumented,excluded,overlapping} module</span>
+<span class="go">                                   function lists, e.g. {print-dir}/available-instr.txt</span>
+<span class="go">    --print-available [ functions | functions+ | modules | pair | pair+ ]</span>
+<span class="go">                                   Print the available entities for instrumentation (functions, modules, or module-function</span>
+<span class="go">                                   pair) to stdout applying regular expressions and exit</span>
+<span class="go">    --print-instrumented [ functions | functions+ | modules | pair | pair+ ]</span>
+<span class="go">                                   Print the instrumented entities (functions, modules, or module-function pair) to stdout</span>
+<span class="go">                                   after applying regular expressions and exit</span>
+<span class="go">    --print-excluded [ functions | functions+ | modules | pair | pair+ ]</span>
+<span class="go">                                   Print the entities for instrumentation (functions, modules, or module-function pair)</span>
+<span class="go">                                   which are excluded from the instrumentation to stdout after applying regular expressions</span>
+<span class="go">                                   and exit</span>
+<span class="go">    --print-overlapping [ functions | functions+ | modules | pair | pair+ ]</span>
+<span class="go">                                   Print the entities for instrumentation (functions, modules, or module-function pair)</span>
+<span class="go">                                   which overlap other function calls or have multiple entry points to stdout applying</span>
+<span class="go">                                   regular expressions and exit</span>
 
-    <span class="o">[</span>MODE OPTIONS<span class="o">]</span>
+<span class="go">    [MODE OPTIONS]</span>
 
-    -o, --output                   Enable generation of a new executable <span class="o">(</span>binary-rewrite<span class="o">)</span>
-    -p, --pid                      Connect to running process
-    -M, --mode <span class="o">[</span> sampling <span class="p">|</span> trace <span class="o">]</span>
-                                   Instrumentation mode. <span class="s1">&#39;trace&#39;</span> mode instruments the selected functions, <span class="s1">&#39;sampling&#39;</span> mode
-                                   only instruments the main <span class="k">function</span> to start and stop the sampler.
-    -c, --command                  Input executable and arguments <span class="o">(</span><span class="k">if</span> <span class="s1">&#39;-- &lt;CMD&gt;&#39;</span> not provided<span class="o">)</span>
+<span class="go">    -o, --output                   Enable generation of a new executable (binary-rewrite)</span>
+<span class="go">    -p, --pid                      Connect to running process</span>
+<span class="go">    -M, --mode [ sampling | trace ]</span>
+<span class="go">                                   Instrumentation mode. &#39;trace&#39; mode instruments the selected functions, &#39;sampling&#39; mode</span>
+<span class="go">                                   only instruments the main function to start and stop the sampler.</span>
+<span class="go">    -c, --command                  Input executable and arguments (if &#39;-- &lt;CMD&gt;&#39; not provided)</span>
 
-    <span class="o">[</span>LIBRARY OPTIONS<span class="o">]</span>
+<span class="go">    [LIBRARY OPTIONS]</span>
 
-    --prefer <span class="o">[</span> shared <span class="p">|</span> static <span class="o">]</span>   Prefer this library types when available
-    -L, --library                  Libraries with instrumentation routines <span class="o">(</span>default: <span class="s2">&quot;libomnitrace&quot;</span><span class="o">)</span>
-    -m, --main-function            The primary <span class="k">function</span> to instrument around, e.g. <span class="s1">&#39;main&#39;</span>
-    --driver                       Force main or _init/_fini instrumentation
-    --load                         Supplemental instrumentation library names w/o extension <span class="o">(</span>e.g. <span class="s1">&#39;libinstr&#39;</span> <span class="k">for</span>
-                                   <span class="s1">&#39;libinstr.so&#39;</span> or <span class="s1">&#39;libinstr.a&#39;</span><span class="o">)</span>
-    --load-instr                   Load <span class="o">{</span>available,instrumented,excluded,overlapping<span class="o">}</span>-instr JSON or XML file<span class="o">(</span>s<span class="o">)</span> and override
-                                   what is <span class="nb">read</span> from the binary
-    --init-functions               Initialization <span class="k">function</span><span class="o">(</span>s<span class="o">)</span> <span class="k">for</span> supplemental instrumentation libraries <span class="o">(</span>see <span class="s1">&#39;--load&#39;</span>
-                                   option<span class="o">)</span>
-    --fini-functions               Finalization <span class="k">function</span><span class="o">(</span>s<span class="o">)</span> <span class="k">for</span> supplemental instrumentation libraries <span class="o">(</span>see <span class="s1">&#39;--load&#39;</span> option<span class="o">)</span>
+<span class="go">    --prefer [ shared | static ]   Prefer this library types when available</span>
+<span class="go">    -L, --library                  Libraries with instrumentation routines (default: &quot;libomnitrace&quot;)</span>
+<span class="go">    -m, --main-function            The primary function to instrument around, e.g. &#39;main&#39;</span>
+<span class="go">    --driver                       Force main or _init/_fini instrumentation</span>
+<span class="go">    --load                         Supplemental instrumentation library names w/o extension (e.g. &#39;libinstr&#39; for</span>
+<span class="go">                                   &#39;libinstr.so&#39; or &#39;libinstr.a&#39;)</span>
+<span class="go">    --load-instr                   Load {available,instrumented,excluded,overlapping}-instr JSON or XML file(s) and override</span>
+<span class="go">                                   what is read from the binary</span>
+<span class="go">    --init-functions               Initialization function(s) for supplemental instrumentation libraries (see &#39;--load&#39;</span>
+<span class="go">                                   option)</span>
+<span class="go">    --fini-functions               Finalization function(s) for supplemental instrumentation libraries (see &#39;--load&#39; option)</span>
 
-    <span class="o">[</span>SYMBOL SELECTION OPTIONS<span class="o">]</span>
+<span class="go">    [SYMBOL SELECTION OPTIONS]</span>
 
-    -I, -R, --function-include     Regex <span class="k">for</span> selecting functions
-    -E, --function-exclude         Regex <span class="k">for</span> excluding functions
-    -MI, -MR, --module-include     Regex <span class="k">for</span> selecting modules/files/libraries
-    -ME, --module-exclude          Regex <span class="k">for</span> excluding modules/files/libraries
+<span class="go">    -I, -R, --function-include     Regex for selecting functions</span>
+<span class="go">    -E, --function-exclude         Regex for excluding functions</span>
+<span class="go">    -MI, -MR, --module-include     Regex for selecting modules/files/libraries</span>
+<span class="go">    -ME, --module-exclude          Regex for excluding modules/files/libraries</span>
 
-    <span class="o">[</span>RUNTIME OPTIONS<span class="o">]</span>
+<span class="go">    [RUNTIME OPTIONS]</span>
 
-    --label <span class="o">[</span> args <span class="p">|</span> file <span class="p">|</span> line <span class="p">|</span> <span class="k">return</span> <span class="o">]</span>
-                                   Labeling info <span class="k">for</span> functions. By default, just the <span class="k">function</span> name is recorded. Use these
-                                   options to gain more information about the <span class="k">function</span> signature or location of the
-                                   functions
-    -d, --default-components       Default components to instrument <span class="o">(</span>only useful when timemory is enabled <span class="k">in</span> omnitrace
-                                   library<span class="o">)</span>
-    --env                          Environment variables to add to the runtime <span class="k">in</span> form <span class="nv">VARIABLE</span><span class="o">=</span>VALUE. E.g. use <span class="s1">&#39;--env</span>
-<span class="s1">                                   OMNITRACE_USE_TIMEMORY=ON&#39;</span> to default to using timemory instead of perfetto
-    --mpi                          Enable MPI support <span class="o">(</span>requires omnitrace built w/ MPI and GOTCHA support<span class="o">)</span>. NOTE: this will
-                                   automatically be activated <span class="k">if</span> MPI_Init/MPI_Init_thread and MPI_Finalize are found <span class="k">in</span> the
-                                   symbol table of target
+<span class="go">    --label [ args | file | line | return ]</span>
+<span class="go">                                   Labeling info for functions. By default, just the function name is recorded. Use these</span>
+<span class="go">                                   options to gain more information about the function signature or location of the</span>
+<span class="go">                                   functions</span>
+<span class="go">    -d, --default-components       Default components to instrument (only useful when timemory is enabled in omnitrace</span>
+<span class="go">                                   library)</span>
+<span class="go">    --env                          Environment variables to add to the runtime in form VARIABLE=VALUE. E.g. use &#39;--env</span>
+<span class="go">                                   OMNITRACE_USE_TIMEMORY=ON&#39; to default to using timemory instead of perfetto</span>
+<span class="go">    --mpi                          Enable MPI support (requires omnitrace built w/ MPI and GOTCHA support). NOTE: this will</span>
+<span class="go">                                   automatically be activated if MPI_Init/MPI_Init_thread and MPI_Finalize are found in the</span>
+<span class="go">                                   symbol table of target</span>
 
-    <span class="o">[</span>GRANULARITY OPTIONS<span class="o">]</span>
+<span class="go">    [GRANULARITY OPTIONS]</span>
 
-    -l, --instrument-loops         Instrument at the loop level
-    -r, --min-address-range        If the address range of a <span class="k">function</span> is less than this value, exclude it from
-                                   instrumentation
-    --min-address-range-loop       If the address range of a <span class="k">function</span> containing a loop is less than this value, exclude it
-                                   from instrumentation
-    --dynamic-callsites            Force instrumentation <span class="k">if</span> a <span class="k">function</span> has dynamic callsites <span class="o">(</span>e.g. <span class="k">function</span> pointers<span class="o">)</span>
-    --traps                        Instrument points which require using a trap. On the x86 architecture, because
-                                   instructions are of variable size, the instruction at a point may be too small <span class="k">for</span>
-                                   Dyninst to replace it with the normal code sequence used to call instrumentation. Also,
-                                   when instrumentation is placed at points other than subroutine entry, exit, or call
-                                   points, traps may be used to ensure the instrumentation fits. In this <span class="k">case</span>, Dyninst
-                                   replaces the instruction with a single-byte instruction that generates a trap.
-    --loop-traps                   Instrument points within a loop which require using a <span class="nb">trap</span> <span class="o">(</span>only relevant when
-                                   --instrument-loops is enabled<span class="o">)</span>.
-    --allow-overlapping            Allow dyninst to instrument either multiple functions which overlap <span class="o">(</span>share part of same
-                                   <span class="k">function</span> body<span class="o">)</span> or single functions with multiple entry points. For more info, see Section
-                                   <span class="m">2</span> of the DyninstAPI documentation.
+<span class="go">    -l, --instrument-loops         Instrument at the loop level</span>
+<span class="go">    -r, --min-address-range        If the address range of a function is less than this value, exclude it from</span>
+<span class="go">                                   instrumentation</span>
+<span class="go">    --min-address-range-loop       If the address range of a function containing a loop is less than this value, exclude it</span>
+<span class="go">                                   from instrumentation</span>
+<span class="go">    --dynamic-callsites            Force instrumentation if a function has dynamic callsites (e.g. function pointers)</span>
+<span class="go">    --traps                        Instrument points which require using a trap. On the x86 architecture, because</span>
+<span class="go">                                   instructions are of variable size, the instruction at a point may be too small for</span>
+<span class="go">                                   Dyninst to replace it with the normal code sequence used to call instrumentation. Also,</span>
+<span class="go">                                   when instrumentation is placed at points other than subroutine entry, exit, or call</span>
+<span class="go">                                   points, traps may be used to ensure the instrumentation fits. In this case, Dyninst</span>
+<span class="go">                                   replaces the instruction with a single-byte instruction that generates a trap.</span>
+<span class="go">    --loop-traps                   Instrument points within a loop which require using a trap (only relevant when</span>
+<span class="go">                                   --instrument-loops is enabled).</span>
+<span class="go">    --allow-overlapping            Allow dyninst to instrument either multiple functions which overlap (share part of same</span>
+<span class="go">                                   function body) or single functions with multiple entry points. For more info, see Section</span>
+<span class="go">                                   2 of the DyninstAPI documentation.</span>
 
-    <span class="o">[</span>DYNINST OPTIONS<span class="o">]</span>
+<span class="go">    [DYNINST OPTIONS]</span>
 
-    -b, --batch-size               Dyninst supports batch insertion of multiple points during runtime instrumentation. If
-                                   one large batch insertion fails, this value will be used to create smaller batches.
-                                   Larger batches generally decrease the instrumentation <span class="nb">time</span>
-    --dyninst-options <span class="o">[</span> BaseTrampDeletion <span class="p">|</span> DebugParsing <span class="p">|</span> DelayedParsing <span class="p">|</span> InstrStackFrames <span class="p">|</span> MergeTramp <span class="p">|</span> SaveFPR <span class="p">|</span> TrampRecursive <span class="p">|</span> TypeChecking <span class="o">]</span>
-                                   Advanced dyninst options: BPatch::set&lt;OPTION&gt;<span class="o">(</span>bool<span class="o">)</span>, e.g. bpatch-&gt;setTrampRecursive<span class="o">(</span><span class="nb">true</span><span class="o">)</span>
+<span class="go">    -b, --batch-size               Dyninst supports batch insertion of multiple points during runtime instrumentation. If</span>
+<span class="go">                                   one large batch insertion fails, this value will be used to create smaller batches.</span>
+<span class="go">                                   Larger batches generally decrease the instrumentation time</span>
+<span class="go">    --dyninst-options [ BaseTrampDeletion | DebugParsing | DelayedParsing | InstrStackFrames | MergeTramp | SaveFPR | TrampRecursive | TypeChecking ]</span>
+<span class="go">                                   Advanced dyninst options: BPatch::set&lt;OPTION&gt;(bool), e.g. bpatch-&gt;setTrampRecursive(true)</span>
 </pre></div>
 </div>
 <p>There are three ways to perform instrumentation:</p>
@@ -792,8 +802,8 @@ patchelf --set-rpath <span class="s1">&#39;/home/user&#39;</span> &lt;exe-or-lib
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="nomenclature.html" class="btn btn-neutral float-left" title="Nomenclature" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="runtime.html" class="btn btn-neutral float-right" title="Customizing Omnitrace Runtime" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="sampling.html" class="btn btn-neutral float-left" title="Call-Stack Sampling" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="critical_trace.html" class="btn btn-neutral float-right" title="Generating a Critical Trace" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

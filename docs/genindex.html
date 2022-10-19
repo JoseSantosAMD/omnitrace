@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Index &mdash; omnitrace 1.3.0 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <title>Index &mdash; omnitrace 1.7.1 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
@@ -26,7 +26,7 @@
             <a href="index.html" class="icon icon-home"> omnitrace
           </a>
               <div class="version">
-                1.3.0
+                1.7.1
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -41,7 +41,12 @@
 <li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
 <li class="toctree-l1"><a class="reference internal" href="features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup and Validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime.html">Configuring Omnitrace Runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sampling.html">Call-Stack Sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumenting.html">Binary Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="critical_trace.html">Generating a Critical Trace</a></li>
 <li class="toctree-l1"><a class="reference internal" href="output.html">Omnitrace Output</a></li>
 <li class="toctree-l1"><a class="reference internal" href="user_api.html">User API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="python.html">Python Support</a></li>
@@ -81,33 +86,7 @@
 <h2 id="O">O</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="user_api.html#_CPPv423OMNITRACE_USER_BINDINGS">OMNITRACE_USER_BINDINGS (C++ enum)</a>
-</li>
-      <li><a href="user_api.html#_CPPv4N23OMNITRACE_USER_BINDINGS28OMNITRACE_USER_BINDINGS_LASTE">OMNITRACE_USER_BINDINGS::OMNITRACE_USER_BINDINGS_LAST (C++ enumerator)</a>
-</li>
-      <li><a href="user_api.html#_CPPv4N23OMNITRACE_USER_BINDINGS21OMNITRACE_USER_REGIONE">OMNITRACE_USER_BINDINGS::OMNITRACE_USER_REGION (C++ enumerator)</a>
-</li>
-      <li><a href="user_api.html#_CPPv4N23OMNITRACE_USER_BINDINGS25OMNITRACE_USER_START_STOPE">OMNITRACE_USER_BINDINGS::OMNITRACE_USER_START_STOP (C++ enumerator)</a>
-</li>
-      <li><a href="user_api.html#_CPPv4N23OMNITRACE_USER_BINDINGS32OMNITRACE_USER_START_STOP_THREADE">OMNITRACE_USER_BINDINGS::OMNITRACE_USER_START_STOP_THREAD (C++ enumerator)</a>
-</li>
       <li><a href="user_api.html#_CPPv424omnitrace_user_configureiPvPv">omnitrace_user_configure (C++ function)</a>
-</li>
-      <li><a href="user_api.html#_CPPv420OMNITRACE_USER_ERROR">OMNITRACE_USER_ERROR (C++ enum)</a>
-</li>
-      <li><a href="user_api.html#_CPPv4N20OMNITRACE_USER_ERROR41OMNITRACE_USER_ERROR_BAD_FUNCTION_POINTERE">OMNITRACE_USER_ERROR::OMNITRACE_USER_ERROR_BAD_FUNCTION_POINTER (C++ enumerator)</a>
-</li>
-      <li><a href="user_api.html#_CPPv4N20OMNITRACE_USER_ERROR29OMNITRACE_USER_ERROR_INTERNALE">OMNITRACE_USER_ERROR::OMNITRACE_USER_ERROR_INTERNAL (C++ enumerator)</a>
-</li>
-      <li><a href="user_api.html#_CPPv4N20OMNITRACE_USER_ERROR37OMNITRACE_USER_ERROR_INVALID_CATEGORYE">OMNITRACE_USER_ERROR::OMNITRACE_USER_ERROR_INVALID_CATEGORY (C++ enumerator)</a>
-</li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="user_api.html#_CPPv4N20OMNITRACE_USER_ERROR25OMNITRACE_USER_ERROR_LASTE">OMNITRACE_USER_ERROR::OMNITRACE_USER_ERROR_LAST (C++ enumerator)</a>
-</li>
-      <li><a href="user_api.html#_CPPv4N20OMNITRACE_USER_ERROR31OMNITRACE_USER_ERROR_NO_BINDINGE">OMNITRACE_USER_ERROR::OMNITRACE_USER_ERROR_NO_BINDING (C++ enumerator)</a>
-</li>
-      <li><a href="user_api.html#_CPPv4N20OMNITRACE_USER_ERROR22OMNITRACE_USER_SUCCESSE">OMNITRACE_USER_ERROR::OMNITRACE_USER_SUCCESS (C++ enumerator)</a>
 </li>
       <li><a href="user_api.html#_CPPv427omnitrace_user_error_stringi">omnitrace_user_error_string (C++ function)</a>
 </li>
@@ -115,6 +94,8 @@
 </li>
       <li><a href="user_api.html#_CPPv425omnitrace_user_pop_regionPKc">omnitrace_user_pop_region (C++ function)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="user_api.html#_CPPv426omnitrace_user_push_regionPKc">omnitrace_user_push_region (C++ function)</a>
 </li>
       <li><a href="user_api.html#_CPPv433omnitrace_user_start_thread_tracev">omnitrace_user_start_thread_trace (C++ function)</a>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>About &mdash; omnitrace 1.3.0 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <title>About &mdash; omnitrace 1.7.1 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
@@ -28,7 +28,7 @@
             <a href="index.html" class="icon icon-home"> omnitrace
           </a>
               <div class="version">
-                1.3.0
+                1.7.1
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -40,12 +40,19 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption"><span class="caption-text">Table of Contents</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">About</a><ul class="simple">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">About</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#omnitrace-use-cases">Omnitrace Use Cases</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup and Validation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime.html">Configuring Omnitrace Runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sampling.html">Call-Stack Sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumenting.html">Binary Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="critical_trace.html">Generating a Critical Trace</a></li>
 <li class="toctree-l1"><a class="reference internal" href="output.html">Omnitrace Output</a></li>
 <li class="toctree-l1"><a class="reference internal" href="user_api.html">User API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="python.html">Python Support</a></li>
@@ -80,20 +87,22 @@
 <h1>About<a class="headerlink" href="#about" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
 </div>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
 <blockquote>
 <div><p><em><strong><a class="reference external" href="https://github.com/AMDResearch/omnitrace">Omnitrace</a> is an AMD open source research project and is not supported as part of the ROCm software stack.</strong></em></p>
 </div></blockquote>
 <p><a class="reference external" href="https://github.com/AMDResearch/omnitrace">Browse Omnitrace source code on Github</a></p>
-<p><a class="reference external" href="https://github.com/AMDResearch/omnitrace">Omnitrace</a> is designed for both high-level and
-comprehensive application tracing and profiling on both the CPU and GPU.
-<a class="reference external" href="https://github.com/AMDResearch/omnitrace">Omnitrace</a> supports both binary instrumentation
-and sampling as a means of collecting various metrics.</p>
-<p>Visualization of the comprehensive omnitrace results can be viewed in any modern web browser by visiting <a class="reference external" href="https://ui.perfetto.dev/">ui.perfetto.dev</a>
-and loading the perfetto output (<code class="docutils literal notranslate"><span class="pre">.proto</span></code> files) produced by omnitrace.</p>
+<p><a class="reference external" href="https://github.com/AMDResearch/omnitrace">Omnitrace</a> is designed for both high-level profiling and
+comprehensive tracing of applications running on the CPU or the CPU+GPU via dynamic binary instrumentation,
+call-stack sampling, and various other means for determining currently executing function and line information.</p>
+<p>Visualization of the comprehensive omnitrace results can be viewed in any modern web browser by visiting
+<a class="reference external" href="https://ui.perfetto.dev/">ui.perfetto.dev</a> and loading the perfetto output (<code class="docutils literal notranslate"><span class="pre">.proto</span></code> files) produced by omnitrace.</p>
 <p>Aggregated high-level results are available in text files for human consumption and JSON files for programmatic analysis.
 The JSON output files are compatible with the python package <a class="reference external" href="https://github.com/hatchet/hatchet">hatchet</a> which converts
-the performance data into pandas dataframes and facilitate multi-run comparisons, filtering, visualization in Jupyter notebooks, and much more.</p>
-<p><a class="reference external" href="https://github.com/AMDResearch/omnitrace">Omnitrace</a> has two distinct configuration steps:</p>
+the performance data into pandas dataframes and facilitate multi-run comparisons, filtering, visualization in Jupyter notebooks,
+and much more.</p>
+<p><a class="reference external" href="https://github.com/AMDResearch/omnitrace">Omnitrace</a> has two distinct configuration steps when instrumenting:</p>
 <ol class="simple">
 <li><p>Configuring which functions and modules are instrumented in the target binaries (i.e. executable and/or libraries)</p>
 <ul class="simple">
@@ -106,6 +115,25 @@ the performance data into pandas dataframes and facilitate multi-run comparisons
 </ul>
 </li>
 </ol>
+</div>
+<div class="section" id="omnitrace-use-cases">
+<h2>Omnitrace Use Cases<a class="headerlink" href="#omnitrace-use-cases" title="Permalink to this headline">¶</a></h2>
+<p>When analyzing the performance of an application, <em><strong>it is always best to NOT assume you know where the performance bottlenecks are</strong></em>
+<em><strong>and why they are happening.</strong></em> Omnitrace is a <em><strong>tool for the entire execution of application</strong></em>. It is the sort of tool which is
+ideal for <em>characterizing</em> where optimization would have the greatest impact on the end-to-end execution of the application and/or
+viewing what else is happening on the system during a performance bottleneck.</p>
+<p>Especially when GPUs are involved, there is a tendency to assume that the quickest path to performance improvement is minimizing
+the runtime of the GPU kernels. This is a highly flawed assumption: if you optimize the runtime of a kernel from 1 millisecond
+to 1 microsecond (1000x speed-up) but the original application <em>never spent time waiting</em> for kernel(s) to complete,
+you will see zero statistically significant speed-up in end-to-end runtime of your application. In other words, it does not matter
+how fast or slow the code on GPU is if the application is not bottlenecked waiting on the GPU.</p>
+<p>Use Omnitrace to obtain a high-level view of the entire application. Use it to determine where the performance bottlenecks are and
+obtain clues to why these bottlenecks are happening. If you want <em><strong>extensive</strong></em> insight into the execution of individual kernels
+on the GPU, AMD Research is working on another tool for this but you should start with the tool which characterizes the
+broad picture: Omnitrace.</p>
+<p>With regard to the CPU, Omnitrace does not target any specific vendor, it works just as well with non-AMD CPUs as with AMD CPUs.
+With regard to the GPU, Omnitrace is currently restricted to the HIP and HSA APIs and kernels executing on AMD GPUs.</p>
+</div>
 </div>
 
 
