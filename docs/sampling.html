@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Call-Stack Sampling &mdash; omnitrace 1.7.1 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="author" title="About these documents" href="about.html" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Binary Instrumentation" href="instrumenting.html" />
+    <link rel="prev" title="Configuring Omnitrace Runtime" href="runtime.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> omnitrace
+          </a>
+              <div class="version">
+                1.7.1
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Table of Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup and Validation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime.html">Configuring Omnitrace Runtime</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Call-Stack Sampling</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#omnitrace-sample-executable">omnitrace-sample Executable</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#omnitrace-sample-example">omnitrace-sample Example</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="instrumenting.html">Binary Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="critical_trace.html">Generating a Critical Trace</a></li>
+<li class="toctree-l1"><a class="reference internal" href="output.html">Omnitrace Output</a></li>
+<li class="toctree-l1"><a class="reference internal" href="user_api.html">User API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python.html">Python Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="youtube.html">YouTube Tutorials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">omnitrace</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Call-Stack Sampling</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/sampling.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="call-stack-sampling">
+<h1>Call-Stack Sampling<a class="headerlink" href="#call-stack-sampling" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+</div>
+<blockquote>
+<div><p><em><strong>NOTE: Set <code class="docutils literal notranslate"><span class="pre">OMNITRACE_USE_SAMPLING=ON</span></code> to activate call-stack sampling when executing an instrumented binary</strong></em></p>
+</div></blockquote>
+<p>Call-stack sampling can be activated with either a binary instrumented via the <code class="docutils literal notranslate"><span class="pre">omnitrace</span></code> executable or via the <code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span></code> executable.
+<em><strong>Effectively</strong></em>, all of the commands below are equivalent:</p>
+<ul class="simple">
+<li><p>Binary rewrite with only instrumentation necessary to start/stop sampling</p></li>
+</ul>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">omnitrace -M sampling -o foo.inst -- foo</span>
+<span class="go">./foo.inst</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Runtime instrumentation with only instrumentation necessary to start/stop sampling</p></li>
+</ul>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">omnitrace -M sampling -- foo</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>No instrumentation required</p></li>
+</ul>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">omnitrace-sample -- foo</span>
+</pre></div>
+</div>
+<p>All <code class="docutils literal notranslate"><span class="pre">omnitrace</span> <span class="pre">-M</span> <span class="pre">sampling</span></code> (referred to as “instrumented-sampling” henceforth) does is wrap the <code class="docutils literal notranslate"><span class="pre">main</span></code> of the executable with initialization
+before <code class="docutils literal notranslate"><span class="pre">main</span></code> starts and finalization after <code class="docutils literal notranslate"><span class="pre">main</span></code> ends.
+This can be easily accomplished without instrumentation via a <code class="docutils literal notranslate"><span class="pre">LD_PRELOAD</span></code> of a library with containing a dynamic symbol wrapper around <code class="docutils literal notranslate"><span class="pre">__libc_start_main</span></code>.
+Thus, whenever binary instrumentation is unnecessary, using <code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span></code> is recommended over <code class="docutils literal notranslate"><span class="pre">omnitrace</span> <span class="pre">-M</span> <span class="pre">sampling</span></code> for several reasons:</p>
+<ol class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span></code> provides command-line options for controlling features of omnitrace instead of <em>requiring</em> configuration files or environment variables</p></li>
+<li><p>Despite the fact that instrumented-sampling only requires inserting snippets around one function (<code class="docutils literal notranslate"><span class="pre">main</span></code>), Dyninst
+does not have a feature for specifying that parsing and processing all the other symbols in the binary is unnecessary,
+thus, in the best case scenario, instrumented-sampling has a slightly slower launch time when the target binary is relatively small
+but, in the worst case scenarios, requires a significant amount of time and memory to launch</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span></code> is fully compatible with MPI, e.g. <code class="docutils literal notranslate"><span class="pre">mpirun</span> <span class="pre">-n</span> <span class="pre">2</span> <span class="pre">omnitrace-sample</span> <span class="pre">--</span> <span class="pre">foo</span></code>, whereas <code class="docutils literal notranslate"><span class="pre">mpirun</span> <span class="pre">-n</span> <span class="pre">2</span> <span class="pre">omnitrace</span> <span class="pre">-M</span> <span class="pre">sampling</span> <span class="pre">--</span> <span class="pre">foo</span></code>
+is incompatible with some MPI distributions (particularly OpenMPI) because of MPI restrictions against forking within an MPI rank</p>
+<ul class="simple">
+<li><p>If you recall, when MPI and binary instrumentation is involved, two steps are involed: (1) do a binary rewrite of the executable
+and (2) use the instrumented executable in leiu of the original executable. <code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span></code> is thus much easier to use with MPI.</p></li>
+</ul>
+</li>
+</ol>
+<div class="section" id="omnitrace-sample-executable">
+<h2>omnitrace-sample Executable<a class="headerlink" href="#omnitrace-sample-executable" title="Permalink to this headline">¶</a></h2>
+<p>View the help menu of <code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span></code> with the <code class="docutils literal notranslate"><span class="pre">-h</span></code> / <code class="docutils literal notranslate"><span class="pre">--help</span></code> option:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>omnitrace-sample --help
+<span class="go">[omnitrace-sample] Usage: omnitrace-sample [ --help (count: 0, dtype: bool)</span>
+<span class="go">                                             --monochrome (max: 1, dtype: bool)</span>
+<span class="go">                                             --debug (max: 1, dtype: bool)</span>
+<span class="go">                                             --verbose (count: 1)</span>
+<span class="go">                                             --config (min: 0, dtype: filepath)</span>
+<span class="go">                                             --output (min: 1)</span>
+<span class="go">                                             --trace (max: 1, dtype: bool)</span>
+<span class="go">                                             --profile (max: 1, dtype: bool)</span>
+<span class="go">                                             --flat-profile (max: 1, dtype: bool)</span>
+<span class="go">                                             --host (max: 1, dtype: bool)</span>
+<span class="go">                                             --device (max: 1, dtype: bool)</span>
+<span class="go">                                             --trace-file (count: 1, dtype: filepath)</span>
+<span class="go">                                             --trace-buffer-size (count: 1, dtype: KB)</span>
+<span class="go">                                             --trace-fill-policy (count: 1)</span>
+<span class="go">                                             --profile-format (min: 1)</span>
+<span class="go">                                             --profile-diff (min: 1)</span>
+<span class="go">                                             --process-freq (count: 1)</span>
+<span class="go">                                             --process-wait (count: 1)</span>
+<span class="go">                                             --process-duration (count: 1)</span>
+<span class="go">                                             --cpus (count: unlimited, dtype: int or range)</span>
+<span class="go">                                             --gpus (count: unlimited, dtype: int or range)</span>
+<span class="go">                                             --freq (count: 1)</span>
+<span class="go">                                             --wait (count: 1)</span>
+<span class="go">                                             --duration (count: 1)</span>
+<span class="go">                                             --tids (min: 1)</span>
+<span class="go">                                             --cputime (min: 0)</span>
+<span class="go">                                             --realtime (min: 0)</span>
+<span class="go">                                             --include (count: unlimited)</span>
+<span class="go">                                             --exclude (count: unlimited)</span>
+<span class="go">                                             --cpu-events (count: unlimited)</span>
+<span class="go">                                             --gpu-events (count: unlimited)</span>
+<span class="go">                                             --inlines (max: 1, dtype: bool)</span>
+<span class="go">                                             --hsa-interrupt (count: 1, dtype: int)</span>
+<span class="go">                                           ]</span>
+
+<span class="go">Options:</span>
+<span class="go">    -h, -?, --help                 Shows this page</span>
+
+<span class="go">    [DEBUG OPTIONS]</span>
+
+<span class="go">    --monochrome                   Disable colorized output</span>
+<span class="go">    --debug                        Debug output</span>
+<span class="go">    -v, --verbose                  Verbose output</span>
+
+<span class="go">    [GENERAL OPTIONS]</span>
+
+<span class="go">    -c, --config                   Configuration file</span>
+<span class="go">    -o, --output                   Output path. Accepts 1-2 parameters corresponding to the output path and the output prefix</span>
+<span class="go">    -T, --trace                    Generate a detailed trace (perfetto output)</span>
+<span class="go">    -P, --profile                  Generate a call-stack-based profile (conflicts with --flat-profile)</span>
+<span class="go">    -F, --flat-profile             Generate a flat profile (conflicts with --profile)</span>
+<span class="go">    -H, --host                     Enable sampling host-based metrics for the process. E.g. CPU frequency, memory usage, etc.</span>
+<span class="go">    -D, --device                   Enable sampling device-based metrics for the process. E.g. GPU temperature, memory usage, etc.</span>
+
+<span class="go">    [TRACING OPTIONS]</span>
+
+<span class="go">    --trace-file                   Specify the trace output filename. Relative filepath will be with respect to output path and output prefix.</span>
+<span class="go">    --trace-buffer-size            Size limit for the trace output (in KB)</span>
+<span class="go">    --trace-fill-policy [ discard | ring_buffer ]</span>
+
+<span class="go">                                   Policy for new data when the buffer size limit is reached:</span>
+<span class="go">                                       - discard     : new data is ignored</span>
+<span class="go">                                       - ring_buffer : new data overwrites oldest data</span>
+
+<span class="go">    [PROFILE OPTIONS]</span>
+
+<span class="go">    --profile-format [ console | json | text ]</span>
+<span class="go">                                   Data formats for profiling results</span>
+<span class="go">    --profile-diff                 Generate a diff output b/t the profile collected and an existing profile from another run Accepts 1-2 parameters</span>
+<span class="go">                                   corresponding to the input path and the input prefix</span>
+
+<span class="go">    [HOST/DEVICE (PROCESS SAMPLING) OPTIONS]</span>
+
+
+<span class="go">    --process-freq                 Set the default host/device sampling frequency (number of interrupts per second)</span>
+<span class="go">    --process-wait                 Set the default wait time (i.e. delay) before taking first host/device sample (in seconds of realtime)</span>
+<span class="go">    --process-duration             Set the duration of the host/device sampling (in seconds of realtime)</span>
+<span class="go">    --cpus                         CPU IDs for frequency sampling. Supports integers and/or ranges</span>
+<span class="go">    --gpus                         GPU IDs for SMI queries. Supports integers and/or ranges</span>
+
+<span class="go">    [GENERAL SAMPLING OPTIONS]</span>
+
+<span class="go">    -f, --freq                     Set the default sampling frequency (number of interrupts per second)</span>
+<span class="go">    -w, --wait                     Set the default wait time (i.e. delay) before taking first sample (in seconds). This delay time is based on the clock</span>
+<span class="go">                                   of the sampler, i.e., a delay of 1 second for CPU-clock sampler may not equal 1 second of realtime</span>
+<span class="go">    -d, --duration                 Set the duration of the sampling (in seconds of realtime). I.e., it is possible (currently) to set a CPU-clock time</span>
+<span class="go">                                   delay that exceeds the real-time duration... resulting in zero samples being taken</span>
+<span class="go">    -t, --tids                     Specify the default thread IDs for sampling, where 0 (zero) is the main thread and each thread created by the target</span>
+<span class="go">                                   application is assigned an atomically incrementing value.</span>
+
+<span class="go">    [SAMPLING TIMER OPTIONS]</span>
+
+<span class="go">    --cputime                      Sample based on a CPU-clock timer (default). Accepts zero or more arguments:</span>
+<span class="go">                                       0. Enables sampling based on CPU-clock timer.</span>
+<span class="go">                                       1. Interrupts per second. E.g., 100 == sample every 10 milliseconds of CPU-time.</span>
+<span class="go">                                       2. Delay (in seconds of CPU-clock time). I.e., how long each thread should wait before taking first sample.</span>
+<span class="go">                                       3+ Thread IDs to target for sampling, starting at 0 (the main thread).</span>
+<span class="go">                                          May be specified as index or range, e.g., &#39;0 2-4&#39; will be interpreted as:</span>
+<span class="go">                                             sample the main thread (0), do not sample the first child thread but sample the 2nd, 3rd, and 4th child threads</span>
+<span class="go">    --realtime                     Sample based on a real-clock timer. Accepts zero or more arguments:</span>
+<span class="go">                                       0. Enables sampling based on real-clock timer.</span>
+<span class="go">                                       1. Interrupts per second. E.g., 100 == sample every 10 milliseconds of realtime.</span>
+<span class="go">                                       2. Delay (in seconds of real-clock time). I.e., how long each thread should wait before taking first sample.</span>
+<span class="go">                                       3+ Thread IDs to target for sampling, starting at 0 (the main thread).</span>
+<span class="go">                                          May be specified as index or range, e.g., &#39;0 2-4&#39; will be interpreted as:</span>
+<span class="go">                                             sample the main thread (0), do not sample the first child thread but sample the 2nd, 3rd, and 4th child threads</span>
+<span class="go">                                          When sampling with a real-clock timer, please note that enabling this will cause threads which are typically &quot;idle&quot;</span>
+<span class="go">                                          to consume more resources since, while idle, the real-clock time increases (and therefore triggers taking samples)</span>
+<span class="go">                                          whereas the CPU-clock time does not.</span>
+
+<span class="go">    [BACKEND OPTIONS]  (These options control region information captured w/o sampling or instrumentation)</span>
+
+<span class="go">    -I, --include [ all | kokkosp | mpip | mutex-locks | ompt | rcclp | rocm-smi | rocprofiler | roctracer | roctx | rw-locks | spin-locks ]</span>
+<span class="go">                                   Include data from these backends</span>
+<span class="go">    -E, --exclude [ all | kokkosp | mpip | mutex-locks | ompt | rcclp | rocm-smi | rocprofiler | roctracer | roctx | rw-locks | spin-locks ]</span>
+<span class="go">                                   Exclude data from these backends</span>
+
+<span class="go">    [HARDWARE COUNTER OPTIONS]</span>
+
+<span class="go">    -C, --cpu-events               Set the CPU hardware counter events to record (ref: `omnitrace-avail -H -c CPU`)</span>
+<span class="go">    -G, --gpu-events               Set the GPU hardware counter events to record (ref: `omnitrace-avail -H -c GPU`)</span>
+
+<span class="go">    [MISCELLANEOUS OPTIONS]</span>
+
+<span class="go">    -i, --inlines                  Include inline info in output when available</span>
+<span class="go">    --hsa-interrupt [ 0 | 1 ]      Set the value of the HSA_ENABLE_INTERRUPT environment variable.</span>
+<span class="go">                                     ROCm version 5.2 and older have a bug which will cause a deadlock if a sample is taken while waiting for the signal</span>
+<span class="go">                                     that a kernel completed -- which happens when sampling with a real-clock timer. We require this option to be set to</span>
+<span class="go">                                     when --realtime is specified to make users aware that, while this may fix the bug, it can have a negative impact on</span>
+<span class="go">                                     performance.</span>
+<span class="go">                                     Values:</span>
+<span class="go">                                       0     avoid triggering the bug, potentially at the cost of reduced performance</span>
+<span class="go">                                       1     do not modify how ROCm is notified about kernel completion</span>
+</pre></div>
+</div>
+<p>The general syntax for separating omnitrace command line arguments from the application arguments follows the
+is consistent with the LLVM style of using a standalone double-hyphen (<code class="docutils literal notranslate"><span class="pre">--</span></code>). All arguments preceding the double-hyphen
+are interpreted as belonging to omnitrace and all arguments following the double-hyphen are interpreted as the
+application and it’s arguments. The double-hyphen is only necessary when passing command line arguments to the target
+which also use hyphens. E.g. <code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span> <span class="pre">ls</span></code> works but, in order to run <code class="docutils literal notranslate"><span class="pre">ls</span> <span class="pre">-la</span></code>, use <code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span> <span class="pre">--</span> <span class="pre">ls</span> <span class="pre">-la</span></code>.</p>
+<p><a class="reference internal" href="runtime.html"><span class="doc">Configuring Omnitrace Runtime</span></a> establish the precedence of environment variable values over values specified in the configuration files. This enables
+the user to configure the omnitrace runtime to their preferred default behavior in a file such as <code class="docutils literal notranslate"><span class="pre">~/.omnitrace.cfg</span></code> and then easily override
+those settings via something like <code class="docutils literal notranslate"><span class="pre">OMNITRACE_ENABLED=OFF</span> <span class="pre">omnitrace-sample</span> <span class="pre">--</span> <span class="pre">foo</span></code>.
+Similarly, the command line arguments passed to <code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span></code> take precedence over environment variables.</p>
+<p>All of the command-line options above correlate to one or more configuration settings, e.g. <code class="docutils literal notranslate"><span class="pre">--cpu-events</span></code> correlates to the <code class="docutils literal notranslate"><span class="pre">OMNITRACE_PAPI_EVENTS</span></code> configuration variable.
+After the command-line arguments to <code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span></code> have been processed but before the target application is executed, <code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span></code> will emit a log
+for which environment variables where set and/or modified:</p>
+<p>The snippet below shows the environment updates when <code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span></code> is invoked with no arguments</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>omnitrace-sample -- ./parallel-overhead-locks <span class="m">30</span> <span class="m">4</span> <span class="m">100</span>
+
+<span class="go">HSA_TOOLS_LIB=/opt/omnitrace/lib/libomnitrace-dl.so.1.7.1</span>
+<span class="go">HSA_TOOLS_REPORT_LOAD_FAILURE=1</span>
+<span class="go">LD_PRELOAD=/opt/omnitrace/lib/libomnitrace-dl.so.1.7.1</span>
+<span class="go">OMNITRACE_CRITICAL_TRACE=false</span>
+<span class="go">OMNITRACE_USE_PROCESS_SAMPLING=false</span>
+<span class="go">OMNITRACE_USE_SAMPLING=true</span>
+<span class="go">OMP_TOOL_LIBRARIES=/opt/omnitrace/lib/libomnitrace-dl.so.1.7.1</span>
+<span class="go">ROCP_TOOL_LIB=/opt/omnitrace/lib/libomnitrace.so.1.7.1</span>
+
+<span class="go">...</span>
+</pre></div>
+</div>
+<p>The snippet below shows the environment updates when <code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span></code> enables profiling, tracing, host process-sampling, device process-sampling, and all the available backends:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>omnitrace-sample -PTDH -I all -- ./parallel-overhead-locks <span class="m">30</span> <span class="m">4</span> <span class="m">100</span>
+
+<span class="go">HSA_TOOLS_LIB=/opt/omnitrace/lib/libomnitrace-dl.so.1.7.1</span>
+<span class="go">HSA_TOOLS_REPORT_LOAD_FAILURE=1</span>
+<span class="go">KOKKOS_PROFILE_LIBRARY=/opt/omnitrace/lib/libomnitrace.so.1.7.1</span>
+<span class="go">LD_PRELOAD=/opt/omnitrace/lib/libomnitrace-dl.so.1.7.1</span>
+<span class="go">OMNITRACE_CPU_FREQ_ENABLED=true</span>
+<span class="go">OMNITRACE_CRITICAL_TRACE=false</span>
+<span class="go">OMNITRACE_TRACE_THREAD_LOCKS=true</span>
+<span class="go">OMNITRACE_TRACE_THREAD_RW_LOCKS=true</span>
+<span class="go">OMNITRACE_TRACE_THREAD_SPIN_LOCKS=true</span>
+<span class="go">OMNITRACE_USE_KOKKOSP=true</span>
+<span class="go">OMNITRACE_USE_MPIP=true</span>
+<span class="go">OMNITRACE_USE_OMPT=true</span>
+<span class="go">OMNITRACE_USE_PERFETTO=true</span>
+<span class="go">OMNITRACE_USE_PROCESS_SAMPLING=true</span>
+<span class="go">OMNITRACE_USE_RCCLP=true</span>
+<span class="go">OMNITRACE_USE_ROCM_SMI=true</span>
+<span class="go">OMNITRACE_USE_ROCPROFILER=true</span>
+<span class="go">OMNITRACE_USE_ROCTRACER=true</span>
+<span class="go">OMNITRACE_USE_ROCTX=true</span>
+<span class="go">OMNITRACE_USE_SAMPLING=true</span>
+<span class="go">OMNITRACE_USE_TIMEMORY=true</span>
+<span class="go">OMP_TOOL_LIBRARIES=/opt/omnitrace/lib/libomnitrace-dl.so.1.7.1</span>
+<span class="go">ROCP_TOOL_LIB=/opt/omnitrace/lib/libomnitrace.so.1.7.1</span>
+
+<span class="go">...</span>
+</pre></div>
+</div>
+<p>The snippet below shows the environment updates when <code class="docutils literal notranslate"><span class="pre">omnitrace-sample</span></code> enables profiling, tracing, host process-sampling, device process-sampling,
+sets the output path to <code class="docutils literal notranslate"><span class="pre">omnitrace-output</span></code>, the output prefix to <code class="docutils literal notranslate"><span class="pre">%tag%</span></code> and disables all the available backends:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>omnitrace-sample -PTDH -E all -o omnitrace-output %tag% -- ./parallel-overhead-locks <span class="m">30</span> <span class="m">4</span> <span class="m">100</span>
+
+<span class="go">LD_PRELOAD=/opt/omnitrace/lib/libomnitrace-dl.so.1.7.1</span>
+<span class="go">OMNITRACE_CPU_FREQ_ENABLED=true</span>
+<span class="go">OMNITRACE_CRITICAL_TRACE=false</span>
+<span class="go">OMNITRACE_OUTPUT_PATH=omnitrace-output</span>
+<span class="go">OMNITRACE_OUTPUT_PREFIX=%tag%</span>
+<span class="go">OMNITRACE_TRACE_THREAD_LOCKS=false</span>
+<span class="go">OMNITRACE_TRACE_THREAD_RW_LOCKS=false</span>
+<span class="go">OMNITRACE_TRACE_THREAD_SPIN_LOCKS=false</span>
+<span class="go">OMNITRACE_USE_KOKKOSP=false</span>
+<span class="go">OMNITRACE_USE_MPIP=false</span>
+<span class="go">OMNITRACE_USE_OMPT=false</span>
+<span class="go">OMNITRACE_USE_PERFETTO=true</span>
+<span class="go">OMNITRACE_USE_PROCESS_SAMPLING=true</span>
+<span class="go">OMNITRACE_USE_RCCLP=false</span>
+<span class="go">OMNITRACE_USE_ROCM_SMI=false</span>
+<span class="go">OMNITRACE_USE_ROCPROFILER=false</span>
+<span class="go">OMNITRACE_USE_ROCTRACER=false</span>
+<span class="go">OMNITRACE_USE_ROCTX=false</span>
+<span class="go">OMNITRACE_USE_SAMPLING=true</span>
+<span class="go">OMNITRACE_USE_TIMEMORY=true</span>
+
+<span class="go">...</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="omnitrace-sample-example">
+<h2>omnitrace-sample Example<a class="headerlink" href="#omnitrace-sample-example" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>omnitrace-sample -PTDH -E all -o omnitrace-output %tag% -c -- ./parallel-overhead-locks <span class="m">30</span> <span class="m">4</span> <span class="m">100</span>
+
+<span class="go">LD_PRELOAD=/opt/omnitrace/lib/libomnitrace-dl.so.1.7.1</span>
+<span class="go">OMNITRACE_CONFIG_FILE=</span>
+<span class="go">OMNITRACE_CPU_FREQ_ENABLED=true</span>
+<span class="go">OMNITRACE_CRITICAL_TRACE=false</span>
+<span class="go">OMNITRACE_OUTPUT_PATH=omnitrace-output</span>
+<span class="go">OMNITRACE_OUTPUT_PREFIX=%tag%</span>
+<span class="go">OMNITRACE_TRACE_THREAD_LOCKS=false</span>
+<span class="go">OMNITRACE_TRACE_THREAD_RW_LOCKS=false</span>
+<span class="go">OMNITRACE_TRACE_THREAD_SPIN_LOCKS=false</span>
+<span class="go">OMNITRACE_USE_KOKKOSP=false</span>
+<span class="go">OMNITRACE_USE_MPIP=false</span>
+<span class="go">OMNITRACE_USE_OMPT=false</span>
+<span class="go">OMNITRACE_USE_PERFETTO=true</span>
+<span class="go">OMNITRACE_USE_PROCESS_SAMPLING=true</span>
+<span class="go">OMNITRACE_USE_RCCLP=false</span>
+<span class="go">OMNITRACE_USE_ROCM_SMI=false</span>
+<span class="go">OMNITRACE_USE_ROCPROFILER=false</span>
+<span class="go">OMNITRACE_USE_ROCTRACER=false</span>
+<span class="go">OMNITRACE_USE_ROCTX=false</span>
+<span class="go">OMNITRACE_USE_SAMPLING=true</span>
+<span class="go">OMNITRACE_USE_TIMEMORY=true</span>
+
+<span class="go">[omnitrace][omnitrace_init_tooling] Instrumentation mode: Sampling</span>
+
+
+<span class="go">      ______   .___  ___. .__   __.  __  .___________..______          ___       ______  _______</span>
+<span class="go">     /  __  \  |   \/   | |  \ |  | |  | |           ||   _  \        /   \     /      ||   ____|</span>
+<span class="go">    |  |  |  | |  \  /  | |   \|  | |  | `---|  |----`|  |_)  |      /  ^  \   |  ,----&#39;|  |__</span>
+<span class="go">    |  |  |  | |  |\/|  | |  . `  | |  |     |  |     |      /      /  /_\  \  |  |     |   __|</span>
+<span class="go">    |  `--&#39;  | |  |  |  | |  |\   | |  |     |  |     |  |\  \----./  _____  \ |  `----.|  |____</span>
+<span class="go">     \______/  |__|  |__| |__| \__| |__|     |__|     | _| `._____/__/     \__\ \______||_______|</span>
+
+
+<span class="go">[759.689]       perfetto.cc:55903 Configured tracing session 1, #sources:1, duration:0 ms, #buffers:1, total buffer size:1024000 KB, total sessions:1, uid:0 session name: &quot;&quot;</span>
+
+<span class="go">[parallel-overhead-locks] Threads: 4</span>
+<span class="go">[parallel-overhead-locks] Iterations: 100</span>
+<span class="go">[parallel-overhead-locks] fibonacci(30)...</span>
+<span class="go">[1] number of iterations: 100</span>
+<span class="go">[2] number of iterations: 100</span>
+<span class="go">[3] number of iterations: 100</span>
+<span class="go">[4] number of iterations: 100</span>
+<span class="go">[parallel-overhead-locks] fibonacci(30) x 4 = 394644873</span>
+<span class="go">[parallel-overhead-locks] number of mutex locks = 400</span>
+<span class="go">[omnitrace][107157][0][omnitrace_finalize]</span>
+<span class="go">[omnitrace][107157][0][omnitrace_finalize] finalizing...</span>
+<span class="go">[omnitrace][107157][0][omnitrace_finalize]</span>
+<span class="go">[omnitrace][107157][0][omnitrace_finalize] omnitrace/process/107157 : 0.610427 sec wall_clock,    2.248 MB peak_rss,    2.265 MB page_rss, 2.560000 sec cpu_clock,  419.4 % cpu_util [laps: 1]</span>
+<span class="go">[omnitrace][107157][0][omnitrace_finalize] omnitrace/process/107157/thread/0 : 0.608866 sec wall_clock, 0.000677 sec thread_cpu_clock,    0.1 % thread_cpu_util,    2.248 MB peak_rss [laps: 1]</span>
+<span class="go">[omnitrace][107157][0][omnitrace_finalize] omnitrace/process/107157/thread/1 : 0.608237 sec wall_clock, 0.603553 sec thread_cpu_clock,   99.2 % thread_cpu_util,    2.204 MB peak_rss [laps: 1]</span>
+<span class="go">[omnitrace][107157][0][omnitrace_finalize] omnitrace/process/107157/thread/2 : 0.601430 sec wall_clock, 0.598378 sec thread_cpu_clock,   99.5 % thread_cpu_util,    1.156 MB peak_rss [laps: 1]</span>
+<span class="go">[omnitrace][107157][0][omnitrace_finalize] omnitrace/process/107157/thread/3 : 0.570223 sec wall_clock, 0.568713 sec thread_cpu_clock,   99.7 % thread_cpu_util,    0.772 MB peak_rss [laps: 1]</span>
+<span class="go">[omnitrace][107157][0][omnitrace_finalize] omnitrace/process/107157/thread/4 : 0.557637 sec wall_clock, 0.557198 sec thread_cpu_clock,   99.9 % thread_cpu_util,    0.156 MB peak_rss [laps: 1]</span>
+<span class="go">[omnitrace][107157][0][omnitrace_finalize]</span>
+<span class="go">[omnitrace][107157][0][omnitrace_finalize] Finalizing perfetto...</span>
+<span class="go">[omnitrace][107157][perfetto]&gt; Outputting &#39;/home/user/data/omnitrace-output/2022-10-19_02.46/parallel-overhead-locksperfetto-trace-107157.proto&#39; (842.90 KB / 0.84 MB / 0.00 GB)... Done</span>
+<span class="go">[omnitrace][107157][trip_count]&gt; Outputting &#39;omnitrace-output/2022-10-19_02.46/parallel-overhead-lockstrip_count-107157.json&#39;</span>
+<span class="go">[omnitrace][107157][trip_count]&gt; Outputting &#39;omnitrace-output/2022-10-19_02.46/parallel-overhead-lockstrip_count-107157.txt&#39;</span>
+<span class="go">[omnitrace][107157][sampling_percent]&gt; Outputting &#39;omnitrace-output/2022-10-19_02.46/parallel-overhead-lockssampling_percent-107157.json&#39;</span>
+<span class="go">[omnitrace][107157][sampling_percent]&gt; Outputting &#39;omnitrace-output/2022-10-19_02.46/parallel-overhead-lockssampling_percent-107157.txt&#39;</span>
+<span class="go">[omnitrace][107157][sampling_cpu_clock]&gt; Outputting &#39;omnitrace-output/2022-10-19_02.46/parallel-overhead-lockssampling_cpu_clock-107157.json&#39;</span>
+<span class="go">[omnitrace][107157][sampling_cpu_clock]&gt; Outputting &#39;omnitrace-output/2022-10-19_02.46/parallel-overhead-lockssampling_cpu_clock-107157.txt&#39;</span>
+<span class="go">[omnitrace][107157][sampling_wall_clock]&gt; Outputting &#39;omnitrace-output/2022-10-19_02.46/parallel-overhead-lockssampling_wall_clock-107157.json&#39;</span>
+<span class="go">[omnitrace][107157][sampling_wall_clock]&gt; Outputting &#39;omnitrace-output/2022-10-19_02.46/parallel-overhead-lockssampling_wall_clock-107157.txt&#39;</span>
+<span class="go">[omnitrace][107157][wall_clock]&gt; Outputting &#39;omnitrace-output/2022-10-19_02.46/parallel-overhead-lockswall_clock-107157.json&#39;</span>
+<span class="go">[omnitrace][107157][wall_clock]&gt; Outputting &#39;omnitrace-output/2022-10-19_02.46/parallel-overhead-lockswall_clock-107157.txt&#39;</span>
+<span class="go">[omnitrace][107157][metadata]&gt; Outputting &#39;omnitrace-output/2022-10-19_02.46/parallel-overhead-locksmetadata-107157.json&#39; and &#39;omnitrace-output/2022-10-19_02.46/parallel-overhead-locksfunctions-107157.json&#39;</span>
+<span class="go">[omnitrace][107157][0][omnitrace_finalize] Finalized</span>
+<span class="go">[761.584]       perfetto.cc:57382 Tracing session 1 ended, total sessions:0</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="runtime.html" class="btn btn-neutral float-left" title="Configuring Omnitrace Runtime" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="instrumenting.html" class="btn btn-neutral float-right" title="Binary Instrumentation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Advanced Micro Devices, Inc..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1HLBBRSTT9"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-1HLBBRSTT9', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>
