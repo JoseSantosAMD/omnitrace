@@ -20,12 +20,12 @@
 # THE SOFTWARE.
 ################################################################################
 
-from dash import html, dash_table, dcc
+import sys
 import dash_daq as daq
 import dash_bootstrap_components as dbc
+
+from dash import html, dash_table, dcc
 from matplotlib.style import available
-import sys
-from ..utils import schema
 
 # List all the unique column values for desired column in df, 'target_col'
 def list_unique(orig_list, is_numeric):
@@ -35,29 +35,32 @@ def list_unique(orig_list, is_numeric):
         unique_list.sort()
     return unique_list
 
+
 def filePath():
     return html.Div(
-    className="filter",
-    children = [
-        html.Li(
-            dcc.Input(
-                id="file-path",
-                placeholder="Insert Workload directory",
-                type="text",
-                debounce = True,
-                style={
-                    'width': '100%',
-                    'height': '40%',
-                    'lineHeight': '60px',
-                    'borderWidth': '1px',
-                    #'borderStyle': 'dashed',
-                    'borderRadius': '5px',
-                    'textAlign': 'center'
-                }
+        className="filter",
+        children=[
+            html.Li(
+                dcc.Input(
+                    id="file-path",
+                    placeholder="Insert Workload directory",
+                    type="text",
+                    debounce=True,
+                    style={
+                        "width": "100%",
+                        "height": "40%",
+                        "lineHeight": "60px",
+                        "borderWidth": "1px",
+                        #'borderStyle': 'dashed',
+                        "borderRadius": "5px",
+                        "textAlign": "center",
+                    },
+                )
             )
-        )
-    ]
-)
+        ],
+    )
+
+
 def kernel_filter(name, values, filter, style_):
     return html.Li(
         className="filter",
@@ -67,93 +70,92 @@ def kernel_filter(name, values, filter, style_):
                     id="point-regex",
                     placeholder="Insert filter regex",
                     type="text",
-                    debounce = True,
+                    debounce=True,
                     style={
-                        'width': '100%',
-                        'height': '40%',
-                        'lineHeight': '60px',
-                        'borderWidth': '1px',
+                        "width": "100%",
+                        "height": "40%",
+                        "lineHeight": "60px",
+                        "borderWidth": "1px",
                         #'borderStyle': 'dashed',
-                        'borderRadius': '5px',
-                        'textAlign': 'center'
-                    }
+                        "borderRadius": "5px",
+                        "textAlign": "center",
+                    },
                 )
             )
-        ]
+        ],
     )
+
+
 def uploadFile():
     return html.Div(
         className="filter",
         children=[
             html.Li(
                 children=[
-                    #drag and drop
+                    # drag and drop
                     dcc.Upload(
                         id="upload-drag",
-                        children=[
-                        'Drag and Drop or ',
-                        html.A('Select a File')
-                        ], 
+                        children=["Drag and Drop or ", html.A("Select a File")],
                         style={
-                            'width': '100%',
-                            'height': '40%',
-                            'lineHeight': '40%',
-                            'borderWidth': '1px',
-                            'borderStyle': 'dashed',
-                            'borderRadius': '5px',
-                            'textAlign': 'center'
-                    })
+                            "width": "100%",
+                            "height": "40%",
+                            "lineHeight": "40%",
+                            "borderWidth": "1px",
+                            "borderStyle": "dashed",
+                            "borderRadius": "5px",
+                            "textAlign": "center",
+                        },
+                    )
                 ]
             )
         ],
     )
 
+
 def minPoints(name, values):
     return html.Li(
         className="filter",
-        #style={#'width': '100%',
+        # style={#'width': '100%',
         #'height': '50px'},
-        children = [
+        children=[
             html.Div(
                 style={
-                    'width':'200px',
-                    'position': 'relative',
-                    'display': 'inline-block',
-                    'list-style': 'none'
+                    "width": "200px",
+                    "position": "relative",
+                    "display": "inline-block",
+                    "list-style": "none",
                 },
                 children=[
-                    
                     html.A(
                         className="smoothscroll",
                         children=["Min Points:"],
-                        ),
-                    
-                ]
+                    ),
+                ],
             ),
             html.Div(
                 style={
-                    'width':'200px',
-                    'padding-top': '10px',
-                    'vertical-align': 'middle',
-                    'position': 'relative',
-                    'display': 'inline-block',
-                    'list-style': 'none'
+                    "width": "200px",
+                    "padding-top": "10px",
+                    "vertical-align": "middle",
+                    "position": "relative",
+                    "display": "inline-block",
+                    "list-style": "none",
                 },
                 children=[
                     daq.Slider(
-                        min = 0, 
-                        max = values, 
-                        step = 1,
-                        value = 1,
+                        min=0,
+                        max=values,
+                        step=1,
+                        value=1,
                         id="points-filt",
-                        handleLabel={"showCurrentValue": True,"label": "VALUE"},
-                        size = 200
+                        handleLabel={"showCurrentValue": True, "label": "VALUE"},
+                        size=200,
                     )
-                    
-                ]
-            )
+                ],
+            ),
         ],
     )
+
 
 def sortBy(name, values, filter, style_):
     return html.Li(
@@ -182,6 +184,7 @@ def sortBy(name, values, filter, style_):
         ],
     )
 
+
 def reportBug():
     return html.Div(
         className="nav-right",
@@ -195,7 +198,6 @@ def reportBug():
                             html.Button(
                                 className="report",
                                 children=["Report Bug"],
-
                             )
                         ],
                     )
@@ -221,156 +223,18 @@ def get_header(raw_pmc, dropDownMenuItems, input_filters, kernel_names):
                                     label="Menu",
                                     menu_variant="dark",
                                 ),
-                                
                             ],
                         ),
-                        
                     ],
                 )
             ],
         ),
-        
     ]
-    avail_normalizations = []
-    if "gpu" in input_filters:
-        children_.append(
-            html.Li(
-                className="filter",
-                children=[
-                    html.Div(
-                        children=[
-                            html.A(
-                                className="smoothscroll",
-                                children=["GCD:"],
-                            ),
-                            dcc.Dropdown(
-                                list_unique(
-                                    list(
-                                        map(
-                                            str,
-                                            raw_pmc[
-                                                schema.pmc_perf_file_prefix
-                                            ]["gpu-id"],
-                                        )
-                                    ),
-                                    True,
-                                ),  # list avail gcd ids
-                                id="gcd-filt",
-                                multi=True,
-                                value=input_filters[
-                                    "gpu"
-                                ],  # default to any gpu filters passed as args
-                                placeholder="ALL",
-                                clearable=False,
-                                style={"width": "60px"},
-                            ),
-                        ]
-                    )
-                ],
-            )
-        )
-    if "dispatch" in input_filters:
-        children_.append(
-            html.Li(
-                className="filter",
-                children=[
-                    html.Div(
-                        children=[
-                            html.A(
-                                className="smoothscroll",
-                                children=["Dispatch Filter:"],
-                            ),
-                            dcc.Dropdown(
-                                list(
-                                    map(
-                                        str,
-                                        raw_pmc[schema.pmc_perf_file_prefix][
-                                            "Index"
-                                        ],
-                                    )
-                                ),
-                                id="disp-filt",
-                                multi=True,
-                                value=input_filters[
-                                    "dispatch"
-                                ],  # default to any dispatch filters passed as args,
-                                placeholder="ALL",
-                                style={"width": "150px"},
-                            ),
-                        ]
-                    )
-                ],
-            )
-        )
-    if schema.pmc_perf_file_prefix in raw_pmc:
-        children_.append(
-            html.Li(
-                className="filter",
-                children=[
-                    html.Div(
-                        children=[
-                            html.A(
-                                className="smoothscroll",
-                                children=["Kernels:"],
-                            ),
-                            dcc.Dropdown(
-                                list_unique(
-                                    list(
-                                        map(
-                                            str,
-                                            raw_pmc[
-                                                schema.pmc_perf_file_prefix
-                                            ]["KernelName"],
-                                        )
-                                    ),
-                                    False,
-                                ),  # list avail kernel names
-                                id="kernel-filt",
-                                multi=True,
-                                value=kernel_names,
-                                placeholder="ALL",
-                                style={
-                                    "width": "400px",  # TODO: Change these widths to % rather than fixed value
-                                    "height": "34px",
-                                },
-                            ),
-                        ]
-                    )
-                ],
-            )
-        )
-        children_.append(
-            html.Li(
-                className="filter",
-                children=[
-                    html.Div(
-                        children=[
-                            html.A(
-                                className="smoothscroll",
-                                children=["Normalization:"],
-                            ),
-                            dcc.Dropdown(
-                                avail_normalizations,
-                                value="per Wave",
-                                clearable=False,
-                                style={"width": "150px"},
-                                disabled=True,  # TODO: Turn this off once multi normalization is enabled
-                            ),
-                        ]
-                    )
-                ],
-            )
-        )
 
     for filter in input_filters:
         header_nav = children_[0].children[0].children
         if filter["type"] == "int":
-            header_nav.append(
-                minPoints(
-                    filter["Name"],
-                    filter["values"]
-                )
-            )
+            header_nav.append(minPoints(filter["Name"], filter["values"]))
         elif filter["type"] == "Name":
             header_nav.append(
                 sortBy(
@@ -397,12 +261,11 @@ def get_header(raw_pmc, dropDownMenuItems, input_filters, kernel_names):
             )
         else:
             print("type not supported")
-            #sys.exit(1)
+            # sys.exit(1)
     header_nav = children_[0].children[0].children
     header_nav.append(reportBug())
-    #header_nav.append(minPoints())
-    
-    
+    # header_nav.append(minPoints())
+
     header_nav.append(filePath())
     header_nav.append(uploadFile())
 

@@ -1,18 +1,17 @@
-import argparse
-from mailbox import linesep
-import os.path
-from pathlib import Path
 import sys
-
-from yaml import parse
-import gui
-from source.utils import file_io, schema, parser
+import argparse
+import os.path
 import dash
 import dash_bootstrap_components as dbc
-from collections import OrderedDict
 import copy
 import json
 import pandas as pd
+
+from pathlib import Path
+from yaml import parse
+from collections import OrderedDict
+
+import gui
 from source.utils.causal_parser import parseFile, getSpeedupData
 
 
@@ -23,18 +22,15 @@ def causal(args):
     workload_path = os.path.join(args.path, "profile.coz")
 
     f = open(workload_path, "r")
-    new_df=parseFile(workload_path)
-    speedup_df=getSpeedupData(new_df).rename(columns={"speedup": "Line Speedup","progress_speedup": "Program Speedup" })
+    new_df = parseFile(workload_path)
+    speedup_df = getSpeedupData(new_df).rename(
+        columns={"speedup": "Line Speedup", "progress_speedup": "Program Speedup"}
+    )
 
     runs = OrderedDict({workload_path: speedup_df})
-    kernel_names = ["program1","program2"]
+    kernel_names = ["program1", "program2"]
     max_points = 9
-    sortOptions=[
-        "Alphabetical",
-        "Max Speedup",
-        "Min Speedup",
-        "Impact"
-    ]
+    sortOptions = ["Alphabetical", "Max Speedup", "Min Speedup", "Impact"]
     input_filters = [
         {
             "Name": "Sort by",
@@ -75,6 +71,7 @@ def causal(args):
         args.verbose,
     )
     app.run_server(debug=False, host="0.0.0.0", port=8051)
+
 
 def main():
     # omnitrace version
@@ -131,9 +128,7 @@ def main():
             os.getcwd()
         ),
     )
-    Causal_parser.add_argument(
-        "-g", action="store_true", help="\t\tDebug single metric."
-    )
+    Causal_parser.add_argument("-g", action="store_true", help="\t\tDebug single metric.")
     Causal_parser.add_argument(
         "-V", "--verbose", help="Increase output verbosity", action="store_true"
     )
@@ -142,6 +137,7 @@ def main():
     if args.mode == "Causal":
         print("hello")
         causal(args)
+
 
 if __name__ == "__main__":
     main()
