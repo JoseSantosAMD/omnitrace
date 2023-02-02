@@ -28,11 +28,14 @@
 #include "library/components/fwd.hpp"
 #include "library/config.hpp"
 #include "library/debug.hpp"
+#include "library/locking.hpp"
 #include "library/ptl.hpp"
 #include "library/runtime.hpp"
+#include "library/state.hpp"
 #include "library/thread_data.hpp"
 #include "library/thread_info.hpp"
 #include "library/tracing.hpp"
+#include "library/tracing/annotation.hpp"
 #include "library/utility.hpp"
 
 #include <timemory/backends/papi.hpp>
@@ -56,12 +59,14 @@
 #include <timemory/units.hpp>
 #include <timemory/utility/backtrace.hpp>
 #include <timemory/utility/demangle.hpp>
+#include <timemory/utility/procfs/maps.hpp>
 #include <timemory/utility/types.hpp>
 #include <timemory/variadic.hpp>
 
 #include <array>
 #include <chrono>
 #include <condition_variable>
+#include <csignal>
 #include <cstring>
 #include <ctime>
 #include <initializer_list>
@@ -74,20 +79,36 @@
 #include <pthread.h>
 #include <signal.h>
 
+namespace tim
+{
+namespace math
+{
+template <typename Tp, typename Up>
+TIMEMORY_INLINE Tp
+plus(Tp&& _lhs, const Up& _rhs)
+{
+    Tp _v = _lhs;
+    plus(_v, _rhs);
+    return _v;
+}
+}  // namespace math
+}  // namespace tim
 namespace omnitrace
 {
 namespace sampling
 {
+using ::tim::sampling::dynamic;
+using tim::sampling::timer;
+
 using hw_counters               = typename component::backtrace_metrics::hw_counters;
 using signal_type_instances     = thread_data<std::set<int>, category::sampling>;
 using sampler_running_instances = thread_data<bool, category::sampling>;
 using bundle_t =
-    tim::lightweight_tuple<backtrace_timestamp, backtrace, backtrace_metrics>;
-using sampler_t              = tim::sampling::sampler<bundle_t, tim::sampling::dynamic>;
+    tim::lightweight_tuple<component::backtrace_timestamp, component::backtrace,
+                           component::backtrace_metrics>;
+using sampler_t              = tim::sampling::sampler<bundle_t, dynamic>;
 using sampler_instances      = thread_data<sampler_t, category::sampling>;
 using sampler_init_instances = thread_data<bundle_t, category::sampling>;
-
-using tim::sampling::timer;
 }  // namespace sampling
 }  // namespace omnitrace
 
@@ -104,8 +125,69 @@ namespace sampling
 {
 namespace
 {
+using sampler_allocator_t = typename sampler_t::allocator_t;
+
+auto&
+get_sampler_allocators()
+{
+    static auto _v = std::vector<std::shared_ptr<sampler_allocator_t>>{};
+    return _v;
+}
+
 std::set<int>
 configure(bool _setup, int64_t _tid = threading::get_id());
+
+void
+configure_sampler_allocator(std::shared_ptr<sampler_allocator_t>& _v)
+{
+    if(_v) return;
+
+    OMNITRACE_SCOPED_SAMPLING_ON_CHILD_THREADS(false);
+    OMNITRACE_SCOPED_THREAD_STATE(ThreadState::Internal);
+
+    _v = std::make_shared<sampler_allocator_t>();
+    _v->reserve(config::get_sampling_allocator_size());
+}
+
+void
+configure_sampler_allocators()
+{
+    auto& _allocators = get_sampler_allocators();
+    if(_allocators.empty())
+    {
+        // avoid lock until necessary
+        auto_lock_t _alloc_lk{ type_mutex<decltype(_allocators)>() };
+        if(_allocators.empty())
+        {
+            _allocators.resize(std::ceil(config::get_num_threads_hint() /
+                                         config::get_sampling_allocator_size()));
+            for(auto& itr : _allocators)
+                configure_sampler_allocator(itr);
+        }
+    }
+}
+
+std::shared_ptr<sampler_allocator_t>
+get_sampler_allocator()
+{
+    configure_sampler_allocators();
+
+    auto& _allocators = get_sampler_allocators();
+
+    OMNITRACE_SCOPED_THREAD_STATE(ThreadState::Internal);
+
+    auto_lock_t _lk{ type_mutex<sampler_allocator_t>() };
+
+    for(auto& itr : _allocators)
+    {
+        if(!itr) configure_sampler_allocator(itr);
+        if(itr->size() < config::get_sampling_allocator_size()) return itr;
+    }
+
+    auto& _v = _allocators.emplace_back();
+    configure_sampler_allocator(_v);
+    return _v;
+}
 
 template <typename... Args>
 void
@@ -162,8 +244,7 @@ get_sampler_init(int64_t _tid = threading::get_id())
 unique_ptr_t<bool>&
 get_sampler_running(int64_t _tid)
 {
-    static auto& _v = sampler_running_instances::instances(
-        sampler_running_instances::construct_on_init{}, false);
+    static auto& _v = sampler_running_instances::instances(construct_on_init{}, false);
     return _v.at(_tid);
 }
 
@@ -293,10 +374,10 @@ get_offload_file()
     return _v;
 }
 
-std::mutex&
+locking::atomic_mutex&
 get_offload_mutex()
 {
-    static auto _v = std::mutex{};
+    static auto _v = locking::atomic_mutex{};
     return _v;
 }
 
@@ -306,12 +387,25 @@ using sampler_buffer_t = tim::data_storage::ring_buffer<sampler_bundle_t>;
 void
 offload_buffer(int64_t _seq, sampler_buffer_t&& _buf)
 {
-    auto  _lk   = std::unique_lock<std::mutex>{ get_offload_mutex() };
+    OMNITRACE_REQUIRE(get_use_tmp_files())
+        << "Error! sampling allocator tries to offload buffer of samples but "
+           "omnitrace was configured to not use temporary files\n";
+
+    // use homemade atomic_mutex/atomic_lock since contention will be low
+    // and using pthread_lock might trigger our wrappers
+    auto  _lk   = locking::atomic_lock{ get_offload_mutex() };
     auto& _file = get_offload_file();
-    if(!_file) return;
+
+    OMNITRACE_REQUIRE(_file)
+        << "Error! sampling allocator tried to offload buffer of samples but the "
+           "offload file does not exist\n";
 
     OMNITRACE_VERBOSE_F(3, "Saving sampling buffer for thread %li...\n", _seq);
     auto& _fs = _file->stream;
+
+    OMNITRACE_REQUIRE(_fs.good())
+        << "Error! temporary file for offloading buffer is in an invalid state\n";
+
     _fs.write(reinterpret_cast<char*>(&_seq), sizeof(_seq));
     auto _data = std::move(_buf);
     _data.save(_fs);
@@ -325,14 +419,27 @@ load_offload_buffer()
     auto _data = std::map<int64_t, std::vector<sampler_buffer_t>>{};
     if(!get_use_tmp_files()) return _data;
 
-    auto  _lk   = std::unique_lock<std::mutex>{ get_offload_mutex() };
+    // use homemade atomic_mutex/atomic_lock since contention will be low
+    // and using pthread_lock might trigger our wrappers
+    auto  _lk   = locking::atomic_lock{ get_offload_mutex() };
     auto& _file = get_offload_file();
-    if(!_file) return _data;
+    if(!_file)
+    {
+        OMNITRACE_WARNING_F(
+            0, "[sampling] returning no data because the offload file no longer exists");
+        return _data;
+    }
 
     auto& _fs = _file->stream;
 
     _fs.close();
     _file->open(std::ios::binary | std::ios::in);
+
+    if(!_fs)
+    {
+        OMNITRACE_WARNING_F(0, "[sampling] %s failed to open", _file->filename.c_str());
+    }
+
     while(!_fs.eof())
     {
         int64_t _seq = 0;
@@ -357,6 +464,10 @@ configure(bool _setup, int64_t _tid)
     auto&       _running      = get_sampler_running(_tid);
     bool        _is_running   = (!_running) ? false : *_running;
     auto&       _signal_types = sampling::get_signal_types(_tid);
+
+    OMNITRACE_CONDITIONAL_THROW(get_use_causal(),
+                                "Internal error! configuring sampling not permitted when "
+                                "causal profiling is enabled");
 
     OMNITRACE_SCOPED_SAMPLING_ON_CHILD_THREADS(false);
 
@@ -402,9 +513,12 @@ configure(bool _setup, int64_t _tid)
         auto _verbose = std::min<int>(get_verbose() - 2, 2);
         if(get_debug_sampling()) _verbose = 2;
 
+        OMNITRACE_DEBUG("Requesting allocator for sampler on thread %lu...\n", _tid);
+        auto _alloc = get_sampler_allocator();
+
         OMNITRACE_DEBUG("Configuring sampler for thread %lu...\n", _tid);
-        sampling::sampler_instances::construct(construct_on_thread{ _tid }, "omnitrace",
-                                               _tid, _verbose);
+        sampling::sampler_instances::construct(construct_on_thread{ _tid }, _alloc,
+                                               "omnitrace", _tid, _verbose);
 
         _sampler->set_flags(SA_RESTART);
         _sampler->set_verbose(_verbose);
@@ -454,7 +568,7 @@ configure(bool _setup, int64_t _tid)
             if(_timer)
             {
                 OMNITRACE_VERBOSE(
-                    1,
+                    2,
                     "[SIG%i] Sampler for thread %lu will be triggered %.1fx per "
                     "second of %s-time (every %.3e milliseconds)...\n",
                     itr, _tid, _timer->get_frequency(units::sec), _type,
@@ -603,19 +717,24 @@ unblock_signals(std::set<int> _signals)
 void
 post_process()
 {
+    OMNITRACE_SCOPED_THREAD_STATE(ThreadState::Internal);
+
+    size_t _total_data       = 0;
+    size_t _total_threads    = 0;
+    auto   _external_samples = std::atomic<size_t>{ 0 };
+    auto   _internal_samples = std::atomic<size_t>{ 0 };
+
+    OMNITRACE_VERBOSE(2 || get_debug_sampling(), "Stopping sampling components...\n");
     omnitrace::component::backtrace::stop();
-    OMNITRACE_VERBOSE(2 || get_debug_sampling(), "Stopping backtrace metrics...\n");
-
-    for(size_t i = 0; i < max_supported_threads; ++i)
-        backtrace_metrics::configure(false, i);
-
-    size_t _total_data    = 0;
-    size_t _total_threads = 0;
-
     for(size_t i = 0; i < max_supported_threads; ++i)
     {
+        backtrace_metrics::configure(false, i);
         auto& _sampler = get_sampler(i);
-        if(_sampler) _sampler->set_offload(nullptr);
+        if(_sampler)
+        {
+            _sampler->stop();
+            _sampler->set_offload(nullptr);
+        }
     }
 
     auto _loaded_data = load_offload_buffer();
@@ -649,8 +768,7 @@ post_process()
         OMNITRACE_VERBOSE(3 || get_debug_sampling(),
                           "Getting sampler data for thread %lu...\n", i);
 
-        _sampler->stop();
-        auto& _raw_data = _sampler->get_data();
+        auto _raw_data = _sampler->get_data();
         for(auto litr : _loaded_data[i])
         {
             while(!litr.is_empty())
@@ -676,45 +794,58 @@ post_process()
         std::vector<sampling::bundle_t*> _data{};
         for(auto& itr : _raw_data)
         {
-            _data.reserve(_data.size() + itr.size());
             auto* _bt = itr.get<backtrace>();
             auto* _ts = itr.get<backtrace_timestamp>();
-            if(!_bt || !_ts) continue;
-            if(_bt->empty()) continue;
-            if(!_thread_info->is_valid_time(_ts->get_timestamp())) continue;
-            _data.emplace_back(&itr);
+            if(_thread_info && _bt && !_bt->empty() && _ts &&
+               _thread_info->is_valid_time(_ts->get_timestamp()))
+            {
+                _data.emplace_back(&itr);
+            }
         }
 
-        if(_data.empty())
+        _total_data += _data.size();
+        _total_threads += (!_data.empty()) ? 1 : 0;
+
+        if(!_data.empty())
+        {
+            OMNITRACE_VERBOSE(2 || get_debug_sampling(),
+                              "Sampler data for thread %lu has %zu valid entries...\n", i,
+                              _data.size());
+
+            if(get_use_perfetto()) post_process_perfetto(i, _init, _data);
+            if(get_use_timemory()) post_process_timemory(i, _init, _data);
+        }
+        else
         {
             OMNITRACE_VERBOSE(2 || get_debug_sampling(),
                               "Sampler data for thread %lu has zero valid entries out of "
                               "%zu... (skipped)\n",
                               i, _raw_data.size());
-            continue;
         }
-
-        OMNITRACE_VERBOSE(2 || get_debug_sampling(),
-                          "Sampler data for thread %lu has %zu valid entries...\n", i,
-                          _raw_data.size());
-
-        _total_data += _raw_data.size();
-        _total_threads += 1;
-
-        if(get_use_perfetto()) post_process_perfetto(i, _init, _data);
-        if(get_use_timemory()) post_process_timemory(i, _init, _data);
     }
 
-    OMNITRACE_VERBOSE(3 || get_debug_sampling(), "Destroying samplers...\n");
+    OMNITRACE_VERBOSE(3 || get_debug_sampling(),
+                      "Destroying samplers and allocators...\n");
 
     for(size_t i = 0; i < max_supported_threads; ++i)
-    {
         get_sampler(i).reset();
+
+    for(auto& itr : get_sampler_allocators())
+    {
+        if(itr) itr.reset();
+    }
+
+    if(get_offload_file())
+    {
+        get_offload_file()->remove();
+        get_offload_file().reset();
     }
 
     OMNITRACE_VERBOSE(1 || get_debug_sampling(),
-                      "Collected %zu samples from %zu threads...\n", _total_data,
-                      _total_threads);
+                      "Collected %zu samples from %zu threads... %zu samples out of %zu "
+                      "were taken while within instrumented routines\n",
+                      _total_data, _total_threads, _internal_samples.load(),
+                      (_internal_samples + _external_samples));
 }
 
 namespace
@@ -740,77 +871,134 @@ post_process_perfetto(int64_t _tid, const bundle_t* _init,
         backtrace_metrics::fini_perfetto(_tid);
     }
 
-    auto _process_perfetto = [_tid,
-                              _init](const std::vector<sampling::bundle_t*>& _data_v) {
-        thread_info::init(true);
-        OMNITRACE_VERBOSE(3 || get_debug_sampling(),
-                          "[%li] Post-processing backtraces for perfetto...\n", _tid);
+    OMNITRACE_VERBOSE(3 || get_debug_sampling(),
+                      "[%li] Post-processing backtraces for perfetto...\n", _tid);
 
-        const auto& _thread_info = thread_info::get(_tid, SequentTID);
-        OMNITRACE_CI_THROW(!_thread_info, "No valid thread info for tid=%li\n", _tid);
+    const auto& _thread_info = thread_info::get(_tid, SequentTID);
+    OMNITRACE_CI_THROW(!_thread_info, "No valid thread info for tid=%li\n", _tid);
 
-        if(!_thread_info) return;
+    if(!_thread_info) return;
 
-        uint64_t _beg_ns  = _thread_info->get_start();
-        uint64_t _end_ns  = _thread_info->get_stop();
-        uint64_t _last_ts = std::max<uint64_t>(
-            _init->get<backtrace_timestamp>()->get_timestamp(), _beg_ns);
+    uint64_t _beg_ns = _thread_info->get_start();
+    uint64_t _end_ns = _thread_info->get_stop();
+    uint64_t _last_ts =
+        std::max<uint64_t>(_init->get<backtrace_timestamp>()->get_timestamp(), _beg_ns);
 
-        tracing::push_perfetto_ts(category::sampling{}, "samples [omnitrace]", _beg_ns,
-                                  "begin_ns", _beg_ns);
+    auto _track = tracing::get_perfetto_track(
+        category::sampling{},
+        [](auto _seq_id, auto _sys_id) {
+            return TIMEMORY_JOIN(" ", "Thread", _seq_id, "(S)", _sys_id);
+        },
+        _thread_info->index_data->sequent_value, _thread_info->index_data->system_value);
 
-        auto _as_hex = [](auto _v) { return JOIN("", "0x", std::hex, _v); };
+    tracing::push_perfetto_track(category::sampling{}, "samples [omnitrace]", _track,
+                                 _beg_ns, [&](perfetto::EventContext ctx) {
+                                     if(config::get_perfetto_annotations())
+                                     {
+                                         tracing::add_perfetto_annotation(ctx, "begin_ns",
+                                                                          _beg_ns);
+                                     }
+                                 });
 
-        for(const auto& itr : _data_v)
+    auto _as_hex = [](auto _v) { return JOIN("", "0x", std::hex, _v); };
+
+    auto _labels = backtrace_metrics::get_hw_counter_labels(_tid);
+    for(const auto& itr : _data)
+    {
+        const auto* _bt_ts = itr->get<backtrace_timestamp>();
+        const auto* _bt_cs = itr->get<backtrace>();
+        const auto* _bt_mt = itr->get<backtrace_metrics>();
+
+        if(!_bt_ts || !_bt_cs || !_bt_mt) continue;
+        if(_bt_ts->get_tid() != _tid) continue;
+
+        static std::set<std::string> _static_strings{};
+        const auto*                  _last = _init;
+        auto   _patched_data               = backtrace::filter_and_patch(_bt_cs->get());
+        size_t _ncount                     = 0;
+        for(const auto& iitr : _patched_data)
         {
-            const auto* _bt_ts = itr->get<backtrace_timestamp>();
-            const auto* _bt_cs = itr->get<backtrace>();
+            uint64_t _beg = _last_ts;
+            uint64_t _end = _bt_ts->get_timestamp();
+            if(!_thread_info->is_valid_lifetime({ _beg, _end })) continue;
 
-            if(!_bt_ts || !_bt_cs) continue;
-            if(_bt_ts->get_tid() != _tid) continue;
+            auto _ncur = _ncount++;
+            // the begin/end + HW counters will be same for entire call-stack so only
+            // annotate
+            //  the top and the bottom functons to keep the data consumption low
+            bool _include_common = (_ncur == 0 || _ncur + 1 == _patched_data.size());
 
-            static std::set<std::string> _static_strings{};
-            for(const auto& iitr : backtrace::filter_and_patch(_bt_cs->get()))
-            {
-                uint64_t _beg = _last_ts;
-                uint64_t _end = _bt_ts->get_timestamp();
-                if(!_thread_info->is_valid_lifetime({ _beg, _end })) continue;
+            // Only annotate HW counters when:
+            //  1. when we can compute a difference from the last sample
+            //  2. when the number of HW counters b/t this sample and last are the same
+            bool _include_hw =
+                _include_common && (_last != nullptr) &&
+                _bt_mt->get_hw_counters().size() ==
+                    _last->get<backtrace_metrics>()->get_hw_counters().size();
 
-                if(get_sampling_include_inlines() && iitr.lineinfo)
+            // annotations common to both modes
+            auto _common_annotate = [&](::perfetto::EventContext& ctx, bool _is_last) {
+                if(_include_common && _is_last)
                 {
-                    auto _lines = iitr.lineinfo.lines;
-                    std::reverse(_lines.begin(), _lines.end());
-                    size_t _n = 0;
-                    for(const auto& litr : _lines)
-                    {
-                        const auto* _name =
-                            _static_strings.emplace(demangle(litr.name)).first->c_str();
-                        auto _info = JOIN(':', litr.location, litr.line);
-                        tracing::push_perfetto_ts(
-                            category::sampling{}, _name, _beg,
-                            [&](perfetto::EventContext ctx) {
-                                tracing::add_perfetto_annotation(ctx, "begin_ns", _beg);
+                    tracing::add_perfetto_annotation(ctx, "begin_ns", _beg);
+                    tracing::add_perfetto_annotation(ctx, "end_ns", _end);
+                }
+                if(_include_hw && _is_last)
+                {
+                    // current values when read
+                    auto _hw_cnt_vals = _bt_mt->get_hw_counters();
+                    // compute difference from last sample to provide the HW counters for
+                    // this sample
+                    tim::math::minus(_hw_cnt_vals,
+                                     _last->get<backtrace_metrics>()->get_hw_counters());
+                    for(size_t i = 0; i < _labels.size(); ++i)
+                        tracing::add_perfetto_annotation(ctx, _labels.at(i),
+                                                         _hw_cnt_vals.at(i));
+                }
+            };
+
+            if(get_sampling_include_inlines() && iitr.lineinfo)
+            {
+                auto _lines = iitr.lineinfo.lines;
+                std::reverse(_lines.begin(), _lines.end());
+                size_t _n = 0;
+                for(const auto& litr : _lines)
+                {
+                    const auto* _name =
+                        _static_strings.emplace(demangle(litr.name)).first->c_str();
+                    auto _info = JOIN(':', litr.location, litr.line);
+                    tracing::push_perfetto_track(
+                        category::sampling{}, _name, _track, _beg,
+                        [&](perfetto::EventContext ctx) {
+                            if(config::get_perfetto_annotations())
+                            {
+                                _common_annotate(ctx, (_n == 0 && _ncur == 0) ||
+                                                          (_n + 1 == _lines.size()));
+                                tracing::add_perfetto_annotation(ctx, "file",
+                                                                 iitr.location);
                                 tracing::add_perfetto_annotation(ctx, "lineinfo", _info);
                                 tracing::add_perfetto_annotation(ctx, "inlined",
                                                                  (_n++ > 0));
-                            });
-                        tracing::pop_perfetto_ts(category::sampling{}, _name, _end,
-                                                 "end_ns", _end);
-                    }
+                            }
+                        });
+                    tracing::pop_perfetto_track(category::sampling{}, _name, _track,
+                                                _end);
                 }
-                else
-                {
-                    const auto* _name = _static_strings.emplace(iitr.name).first->c_str();
-                    tracing::push_perfetto_ts(
-                        category::sampling{}, _name, _beg,
-                        [&](perfetto::EventContext ctx) {
-                            tracing::add_perfetto_annotation(ctx, "begin_ns", _beg);
+            }
+            else
+            {
+                const auto* _name = _static_strings.emplace(iitr.name).first->c_str();
+                tracing::push_perfetto_track(
+                    category::sampling{}, _name, _track, _beg,
+                    [&](perfetto::EventContext ctx) {
+                        if(config::get_perfetto_annotations())
+                        {
+                            _common_annotate(ctx, true);
                             tracing::add_perfetto_annotation(ctx, "file", iitr.location);
                             tracing::add_perfetto_annotation(ctx, "pc",
                                                              _as_hex(iitr.address));
                             tracing::add_perfetto_annotation(ctx, "line_address",
                                                              _as_hex(iitr.line_address));
-
                             if(iitr.lineinfo)
                             {
                                 auto _lines = iitr.lineinfo.lines;
@@ -825,38 +1013,24 @@ post_process_perfetto(int64_t _tid, const bundle_t* _init,
                                              JOIN(':', litr.location, litr.line)));
                                 }
                             }
-                        });
+                        }
+                    });
 
-                    tracing::pop_perfetto_ts(category::sampling{}, _name, _end, "end_ns",
-                                             _end);
-                }
+                tracing::pop_perfetto_track(category::sampling{}, _name, _track, _end);
             }
-            _last_ts = _bt_ts->get_timestamp();
         }
+        _last_ts = _bt_ts->get_timestamp();
+        _last    = itr;
+    }
 
-        tracing::pop_perfetto_ts(category::sampling{}, "samples [omnitrace]", _end_ns,
-                                 "end_ns", _end_ns);
-    };
-
-    auto _processing_thread        = threading::get_tid();
-    auto _process_perfetto_wrapper = [&]() {
-        if(threading::get_tid() != _processing_thread)
-            threading::set_thread_name(TIMEMORY_JOIN(" ", "Thread", _tid, "(S)").c_str());
-
-        try
-        {
-            _process_perfetto(_data);
-        } catch(std::runtime_error& _e)
-        {
-            OMNITRACE_PRINT("[sampling][post_process_perfetto] Exception: %s\n",
-                            _e.what());
-            OMNITRACE_CI_ABORT(true, "[sampling][post_process_perfetto] Exception: %s\n",
-                               _e.what());
-        }
-    };
-
-    OMNITRACE_SCOPED_SAMPLING_ON_CHILD_THREADS(false);
-    std::thread{ _process_perfetto_wrapper }.join();
+    tracing::pop_perfetto_track(category::sampling{}, "samples [omnitrace]", _track,
+                                _end_ns, [&](perfetto::EventContext ctx) {
+                                    if(config::get_perfetto_annotations())
+                                    {
+                                        tracing::add_perfetto_annotation(ctx, "end_ns",
+                                                                         _end_ns);
+                                    }
+                                });
 }
 
 void

@@ -29,6 +29,7 @@
 #include "library/timemory.hpp"
 
 #include <timemory/backends/threading.hpp>
+#include <timemory/process/threading.hpp>
 #include <timemory/utility/types.hpp>
 
 #include <cstddef>
@@ -45,15 +46,20 @@ exit_gotcha::configure()
         exit_gotcha_t::configure<0, void>("abort");
         exit_gotcha_t::configure<1, void, int>("exit");
         exit_gotcha_t::configure<2, void, int>("quick_exit");
+        exit_gotcha_t::configure<3, void, int>("_Exit");
     };
 }
 
 namespace
 {
+auto _exit_info = exit_gotcha::exit_info{};
+
 template <typename FuncT, typename... Args>
 void
 invoke_exit_gotcha(const exit_gotcha::gotcha_data& _data, FuncT _func, Args... _args)
 {
+    threading::clear_callbacks();
+
     if(config::settings_are_configured())
     {
         OMNITRACE_VERBOSE(0, "%s called %s(%s)...\n", get_exe_name().c_str(),
@@ -87,6 +93,7 @@ invoke_exit_gotcha(const exit_gotcha::gotcha_data& _data, FuncT _func, Args... _
 void
 exit_gotcha::operator()(const gotcha_data& _data, exit_func_t _func, int _ec) const
 {
+    _exit_info = { true, _data.tool_id.find("quick") != std::string::npos, _ec };
     invoke_exit_gotcha(_data, _func, _ec);
 }
 
@@ -95,6 +102,12 @@ void
 exit_gotcha::operator()(const gotcha_data& _data, abort_func_t _func) const
 {
     invoke_exit_gotcha(_data, _func);
+}
+
+exit_gotcha::exit_info
+exit_gotcha::get_exit_info()
+{
+    return _exit_info;
 }
 }  // namespace component
 }  // namespace omnitrace

@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 #include "library/config.hpp"
+#include "common/defines.h"
 #include "library/debug.hpp"
 #include "library/defines.hpp"
 #include "library/gpu.hpp"
@@ -42,6 +43,8 @@
 #include <timemory/settings/types.hpp>
 #include <timemory/utility/argparse.hpp>
 #include <timemory/utility/declaration.hpp>
+#include <timemory/utility/filepath.hpp>
+#include <timemory/utility/join.hpp>
 #include <timemory/utility/signals.hpp>
 
 #include <algorithm>
@@ -64,12 +67,22 @@ using settings = tim::settings;
 
 namespace
 {
+TIMEMORY_NOINLINE bool&
+_settings_are_configured()
+{
+    static bool _v = false;
+    return _v;
+}
+
 auto
 get_config()
 {
-    static auto _once = (configure_settings(), true);
+    if(!_settings_are_configured())
+    {
+        static auto _once = (configure_settings(), true);
+        (void) _once;
+    }
     return settings::shared_instance();
-    (void) _once;
 }
 
 std::string
@@ -93,14 +106,21 @@ get_available_perfetto_categories()
     return _v;
 }
 
-template <typename Tp = int64_t>
-std::set<Tp>
-parse_numeric_range(std::string _input_string, const std::string& _label)
+template <typename Tp = int64_t, typename ContainerT = std::set<Tp>, typename Up = Tp>
+ContainerT
+parse_numeric_range(std::string _input_string, const std::string& _label, Up _incr)
 {
+    auto _get_value = [](const std::string& _inp) {
+        std::stringstream iss{ _inp };
+        auto              var = Tp{};
+        iss >> var;
+        return var;
+    };
+
     for(auto& itr : _input_string)
         itr = tolower(itr);
-    auto _result = std::set<Tp>{};
-    for(const auto& _v : tim::delimit(_input_string, ",; \t"))
+    auto _result = ContainerT{};
+    for(const auto& _v : tim::delimit(_input_string, ",; \t\n\r"))
     {
         if(_v.find_first_not_of("0123456789-") != std::string::npos)
         {
@@ -118,12 +138,23 @@ parse_numeric_range(std::string _input_string, const std::string& _label)
                 _vv.size() != 2,
                 "Invalid %s range specification: %s. Required format N-M, e.g. 0-4",
                 _label.c_str(), _v.c_str());
-            for(int64_t i = std::stol(_vv.at(0)); i <= std::stol(_vv.at(1)); ++i)
-                _result.emplace(i);
+            Tp _vn = _get_value(_vv.at(0));
+            Tp _vN = _get_value(_vv.at(1));
+            do
+            {
+                if constexpr(std::is_same<ContainerT, std::set<Tp>>::value)
+                    _result.emplace(_vn);
+                else
+                    _result.emplace_back(_vn);
+                _vn += _incr;
+            } while(_vn <= _vN);
         }
         else
         {
-            _result.emplace(std::stol(_v));
+            if constexpr(std::is_same<ContainerT, std::set<Tp>>::value)
+                _result.emplace(std::stol(_v));
+            else
+                _result.emplace_back(std::stol(_v));
         }
     }
     return _result;
@@ -178,13 +209,8 @@ inline namespace config
 {
 namespace
 {
-TIMEMORY_NOINLINE bool&
-_settings_are_configured()
-{
-    static bool _v = false;
-    return _v;
+auto cfg_fini_callbacks = std::vector<std::function<void()>>{};
 }
-}  // namespace
 
 void
 finalize()
@@ -192,6 +218,8 @@ finalize()
     OMNITRACE_DEBUG("[omnitrace_finalize] Disabling signal handling...\n");
     tim::signals::disable_signal_detection();
     _settings_are_configured() = false;
+    for(const auto& itr : cfg_fini_callbacks)
+        if(itr) itr();
 }
 
 bool
@@ -266,12 +294,30 @@ configure_settings(bool _init)
                                  "Verbosity within the omnitrace-dl library", 0,
                                  "debugging", "libomnitrace-dl", "advanced");
 
+    OMNITRACE_CONFIG_SETTING(
+        size_t, "OMNITRACE_NUM_THREADS_HINT",
+        "This is hint for how many threads are expected to be created in the "
+        "application. Setting this value allows omnitrace to preallocate resources "
+        "during initialization and warn about any potential issues. For example, when "
+        "call-stack sampling, each thread has a unique sampler instance which "
+        "communicates with an allocator instance running in a background thread. Each "
+        "allocator only handles N sampling instances (where N is the value of "
+        "OMNITRACE_SAMPLING_ALLOCATOR_SIZE). When this hint is set to >= the number of "
+        "threads that get sampled, omnitrace can start all the background threads during "
+        "initialization",
+        get_env<size_t>("OMNITRACE_NUM_THREADS", 1), "threading", "performance",
+        "sampling", "debugging", "advanced");
+
     OMNITRACE_CONFIG_SETTING(bool, "OMNITRACE_USE_PERFETTO", "Enable perfetto backend",
                              _default_perfetto_v, "backend", "perfetto");
 
     OMNITRACE_CONFIG_SETTING(bool, "OMNITRACE_USE_TIMEMORY", "Enable timemory backend",
                              !_config->get<bool>("OMNITRACE_USE_PERFETTO"), "backend",
                              "timemory");
+
+    OMNITRACE_CONFIG_SETTING(bool, "OMNITRACE_USE_CAUSAL",
+                             "Enable causal profiling analysis", false, "backend",
+                             "causal", "analysis");
 
     OMNITRACE_CONFIG_SETTING(bool, "OMNITRACE_USE_ROCTRACER",
                              "Enable ROCm API and kernel tracing", true, "backend",
@@ -325,8 +371,18 @@ configure_settings(bool _init)
         false, "rocm", "rccl", "backend");
 
     OMNITRACE_CONFIG_CL_SETTING(
-        bool, "OMNITRACE_KOKKOS_KERNEL_LOGGER", "Enables kernel logging", false,
+        bool, "OMNITRACE_KOKKOSP_KERNEL_LOGGER", "Enables kernel logging", false,
         "--omnitrace-kokkos-kernel-logger", "kokkos", "debugging", "advanced");
+
+    OMNITRACE_CONFIG_SETTING(int64_t, "OMNITRACE_KOKKOSP_NAME_LENGTH_MAX",
+                             "Set this to a value > 0 to help avoid unnamed Kokkos Tools "
+                             "callbacks. Generally, unnamed callbacks are the demangled "
+                             "name of the function, which is very long",
+                             0, "kokkos", "debugging", "advanced");
+
+    OMNITRACE_CONFIG_SETTING(std::string, "OMNITRACE_KOKKOSP_PREFIX",
+                             "Set to [kokkos] to maintain old naming convention", "",
+                             "kokkos", "debugging", "advanced");
 
     OMNITRACE_CONFIG_SETTING(bool, "OMNITRACE_USE_OMPT",
                              "Enable support for OpenMP-Tools", false, "openmp", "ompt",
@@ -485,6 +541,18 @@ configure_settings(bool _init)
                              "sampling", "data", "advanced");
 
     OMNITRACE_CONFIG_SETTING(
+        size_t, "OMNITRACE_SAMPLING_ALLOCATOR_SIZE",
+        "The number of sampled threads handled by an allocator running in a background "
+        "thread. Each thread that is sampled communicates with an allocator running in a "
+        "background thread which handles storing/caching the data when it's buffer is "
+        "full. Setting this value too high (i.e. equal to the number of threads when the "
+        "thread count is high) may cause loss of data -- the sampler may fill a new "
+        "buffer and overwrite old buffer data before the allocator can process it. "
+        "Setting this value to 1 will result in a background allocator thread for every "
+        "thread started by the application.",
+        8, "sampling", "debugging", "advanced");
+
+    OMNITRACE_CONFIG_SETTING(
         bool, "OMNITRACE_SAMPLING_REALTIME",
         "Enable sampling frequency via a wall-clock timer on child threads. This may "
         "result in typically idle child threads consuming an unnecessary large amount of "
@@ -507,6 +575,14 @@ configure_settings(bool _init)
             "the signal used is SIGRTMIN + <THIS_VALUE>. Value must be <= " } +
             std::to_string(_sigrt_range),
         0, "sampling", "advanced");
+
+    OMNITRACE_CONFIG_SETTING(bool, "OMNITRACE_ROCTRACER_HIP_API",
+                             "Enable HIP API tracing support", true, "roctracer", "rocm",
+                             "advanced");
+
+    OMNITRACE_CONFIG_SETTING(bool, "OMNITRACE_ROCTRACER_HIP_ACTIVITY",
+                             "Enable HIP activity tracing support", true, "roctracer",
+                             "rocm", "advanced");
 
     OMNITRACE_CONFIG_SETTING(bool, "OMNITRACE_ROCTRACER_HSA_ACTIVITY",
                              "Enable HSA activity tracing support", false, "roctracer",
@@ -551,6 +627,12 @@ configure_settings(bool _init)
                              "advanced");
 
     OMNITRACE_CONFIG_SETTING(
+        bool, "OMNITRACE_PERFETTO_ROCTRACER_PER_STREAM",
+        "Separate roctracer GPU side traces (copies, kernels) into separate "
+        "tracks based on the stream they're enqueued into",
+        true, "perfetto", "roctracer", "rocm", "advanced");
+
+    OMNITRACE_CONFIG_SETTING(
         std::string, "OMNITRACE_PERFETTO_FILL_POLICY",
         "Behavior when perfetto buffer is full. 'discard' will ignore new entries, "
         "'ring_buffer' will overwrite old entries",
@@ -561,6 +643,13 @@ configure_settings(bool _init)
                              "Categories to collect within perfetto", "", "perfetto",
                              "data", "advanced")
         ->set_choices(get_available_perfetto_categories<std::vector<std::string>>());
+
+    OMNITRACE_CONFIG_SETTING(bool, "OMNITRACE_PERFETTO_ANNOTATIONS",
+                             "Include debug annotations in perfetto trace. When enabled, "
+                             "this feature will encode information such as the values of "
+                             "the function arguments (when available). Disabling this "
+                             "feature may dramatically reduce the size of the trace",
+                             true, "perfetto", "data", "debugging", "advanced");
 
     OMNITRACE_CONFIG_SETTING(
         uint64_t, "OMNITRACE_THREAD_POOL_SIZE",
@@ -607,6 +696,101 @@ configure_settings(bool _init)
     OMNITRACE_CONFIG_SETTING(
         std::string, "OMNITRACE_TMPDIR", "Base directory for temporary files",
         get_env<std::string>("TMPDIR", "/tmp"), "io", "data", "advanced");
+
+    OMNITRACE_CONFIG_SETTING(
+        std::string, "OMNITRACE_CAUSAL_MODE",
+        "Perform causal experiments at the function-scope or line-scope. Ideally, use "
+        "function first to locate function with highest impact and then switch to line "
+        "mode + OMNITRACE_CAUSAL_FUNCTION_SCOPE set to the function being targeted.",
+        std::string{ "function" }, "causal", "analysis", "advanced");
+
+    OMNITRACE_CONFIG_SETTING(
+        double, "OMNITRACE_CAUSAL_DELAY",
+        "Length of time to wait (in seconds) before starting the first causal experiment",
+        0.0, "causal", "analysis");
+
+    OMNITRACE_CONFIG_SETTING(
+        double, "OMNITRACE_CAUSAL_DURATION",
+        "Length of time to perform causal experimentation (in seconds) after the first "
+        "experiment has started. After this amount of time has elapsed, no more causal "
+        "experiments will be performed and the application will continue without any "
+        "overhead from causal profiling. Any value <= 0 means until the application "
+        "completes",
+        0.0, "causal", "analysis");
+
+    OMNITRACE_CONFIG_SETTING(
+        bool, "OMNITRACE_CAUSAL_END_TO_END",
+        "Perform causal experiment over the length of the entire application", false,
+        "causal", "analysis", "advanced");
+
+    OMNITRACE_CONFIG_SETTING(std::string, "OMNITRACE_CAUSAL_FILE",
+                             "Name of causal output filename (w/o extension)",
+                             std::string{ "experiments" }, "causal", "analysis",
+                             "advanced", "io");
+
+    OMNITRACE_CONFIG_SETTING(
+        bool, "OMNITRACE_CAUSAL_FILE_RESET",
+        "Overwrite any existing causal output file instead of appending to it", false,
+        "causal", "analysis", "advanced", "io");
+
+    OMNITRACE_CONFIG_SETTING(
+        uint64_t, "OMNITRACE_CAUSAL_RANDOM_SEED",
+        "Seed for random number generator which selects speedups and experiments -- "
+        "please note that the lines selected for experimentation are not reproducible "
+        "but the speedup selection is. If set to zero, std::random_device{}() will be "
+        "used.",
+        0, "causal", "analysis");
+
+    OMNITRACE_CONFIG_SETTING(std::string, "OMNITRACE_CAUSAL_FIXED_SPEEDUP",
+                             "List of virtual speedups between 0 and 100 (inclusive) to "
+                             "sample from for causal profiling",
+                             std::string{}, "causal", "analysis", "advanced");
+
+    OMNITRACE_CONFIG_SETTING(
+        std::string, "OMNITRACE_CAUSAL_BINARY_SCOPE",
+        "Limits causal experiments to the binaries matching the provided list of regular "
+        "expressions (separated by tab, semi-colon, and/or quotes (single or double))",
+        std::string{ "%MAIN%" }, "causal", "analysis");
+
+    OMNITRACE_CONFIG_SETTING(
+        std::string, "OMNITRACE_CAUSAL_SOURCE_SCOPE",
+        "Limits causal experiments to the source files or source file + lineno pair "
+        "(i.e. <file> or <file>:<line>) matching the provided list of regular "
+        "expressions (separated by tab, semi-colon, and/or quotes (single or double))",
+        std::string{}, "causal", "analysis");
+
+    OMNITRACE_CONFIG_SETTING(
+        std::string, "OMNITRACE_CAUSAL_FUNCTION_SCOPE",
+        "List of <function> regex entries for causal profiling (separated by tab, "
+        "semi-colon, and/or quotes (single or double))",
+        std::string{}, "causal", "analysis");
+
+    OMNITRACE_CONFIG_SETTING(
+        std::string, "OMNITRACE_CAUSAL_BINARY_EXCLUDE",
+        "Excludes binaries matching the list of provided regexes from causal experiments "
+        "(separated by tab, semi-colon, and/or quotes (single or double))",
+        std::string{}, "causal", "analysis");
+
+    OMNITRACE_CONFIG_SETTING(
+        std::string, "OMNITRACE_CAUSAL_SOURCE_EXCLUDE",
+        "Excludes source files or source file + lineno pair (i.e. <file> or "
+        "<file>:<line>) matching the list of provided regexes from causal experiments "
+        "(separated by tab, semi-colon, and/or quotes (single or double))",
+        std::string{}, "causal", "analysis");
+
+    OMNITRACE_CONFIG_SETTING(
+        std::string, "OMNITRACE_CAUSAL_FUNCTION_EXCLUDE",
+        "Excludes functions matching the list of provided regexes from causal "
+        "experiments (separated by tab, semi-colon, and/or quotes (single or double))",
+        std::string{}, "causal", "analysis");
+
+    OMNITRACE_CONFIG_SETTING(
+        bool, "OMNITRACE_CAUSAL_FUNCTION_EXCLUDE_DEFAULTS",
+        "This controls adding a series of function exclude regexes to avoid "
+        "experimenting on STL implementation functions, etc. which are, "
+        "generally, not helpful. Details: excludes demangled function names "
+        "starting with '_' or containing '::_M'.",
+        true, "causal", "analysis", "advanced");
 
     // set the defaults
     _config->get_flamegraph_output()     = false;
@@ -745,8 +929,9 @@ configure_settings(bool _init)
     auto _cmd     = tim::read_command_line(process::get_id());
     auto _cmd_env = tim::get_env<std::string>("OMNITRACE_COMMAND_LINE", "");
     if(!_cmd_env.empty()) _cmd = tim::delimit(_cmd_env, " ");
-    auto _exe = (_cmd.empty()) ? "exe" : _cmd.front();
-    auto _pos = _exe.find_last_of('/');
+    auto _exe          = (_cmd.empty()) ? "exe" : _cmd.front();
+    get_exe_realpath() = filepath::realpath(_exe, nullptr, false);
+    auto _pos          = _exe.find_last_of('/');
     if(_pos < _exe.length() - 1) _exe = _exe.substr(_pos + 1);
     get_exe_name() = _exe;
     _config->set_tag(_exe);
@@ -784,8 +969,8 @@ configure_settings(bool _init)
             }
             if(!_iss.str().empty())
             {
-                OMNITRACE_BASIC_PRINT("config file '%s':\n%s\n", fitr.c_str(),
-                                      _iss.str().c_str());
+                OMNITRACE_BASIC_VERBOSE(1, "config file '%s':\n%s\n", fitr.c_str(),
+                                        _iss.str().c_str());
             }
         }
     }
@@ -859,14 +1044,14 @@ configure_mode_settings()
     auto _set = [](const std::string& _name, bool _v) {
         if(!set_setting_value(_name, _v))
         {
-            OMNITRACE_VERBOSE(
+            OMNITRACE_BASIC_VERBOSE(
                 4, "[configure_mode_settings] No configuration setting named '%s'...\n",
                 _name.data());
         }
         else
         {
             bool _changed = get_setting_value<bool>(_name).second != _v;
-            OMNITRACE_VERBOSE(
+            OMNITRACE_BASIC_VERBOSE(
                 1 && _changed,
                 "[configure_mode_settings] Overriding %s to %s in %s mode...\n",
                 _name.c_str(), JOIN("", std::boolalpha, _v).c_str(),
@@ -874,12 +1059,15 @@ configure_mode_settings()
         }
     };
 
+    auto _use_causal = get_setting_value<bool>("OMNITRACE_USE_CAUSAL");
+    if(_use_causal.first && _use_causal.second) set_env("OMNITRACE_MODE", "causal", 1);
+
     if(get_mode() == Mode::Coverage)
     {
         set_default_setting_value("OMNITRACE_USE_CODE_COVERAGE", true);
         _set("OMNITRACE_USE_PERFETTO", false);
         _set("OMNITRACE_USE_TIMEMORY", false);
-        //_set("OMNITRACE_USE_CAUSAL", false);
+        _set("OMNITRACE_USE_CAUSAL", false);
         _set("OMNITRACE_USE_ROCM_SMI", false);
         _set("OMNITRACE_USE_ROCTRACER", false);
         _set("OMNITRACE_USE_ROCPROFILER", false);
@@ -890,6 +1078,15 @@ configure_mode_settings()
         _set("OMNITRACE_USE_PROCESS_SAMPLING", false);
         _set("OMNITRACE_CRITICAL_TRACE", false);
     }
+    else if(get_mode() == Mode::Causal)
+    {
+        _set("OMNITRACE_USE_CAUSAL", true);
+        _set("OMNITRACE_USE_PERFETTO", false);
+        _set("OMNITRACE_USE_TIMEMORY", false);
+        _set("OMNITRACE_CRITICAL_TRACE", false);
+        _set("OMNITRACE_USE_SAMPLING", false);
+        _set("OMNITRACE_USE_PROCESS_SAMPLING", false);
+    }
     else if(get_mode() == Mode::Sampling)
     {
         set_default_setting_value("OMNITRACE_USE_SAMPLING", true);
@@ -899,8 +1096,10 @@ configure_mode_settings()
 
     if(gpu::device_count() == 0)
     {
-        OMNITRACE_VERBOSE(1, "No HIP devices were found: disabling roctracer, "
-                             "rocprofiler, and rocm_smi...\n");
+#if OMNITRACE_HIP_VERSION > 0
+        OMNITRACE_BASIC_VERBOSE(1, "No HIP devices were found: disabling roctracer, "
+                                   "rocprofiler, and rocm_smi...\n");
+#endif
         _set("OMNITRACE_USE_ROCPROFILER", false);
         _set("OMNITRACE_USE_ROCTRACER", false);
         _set("OMNITRACE_USE_ROCM_SMI", false);
@@ -922,8 +1121,8 @@ configure_mode_settings()
                 _message =
                     JOIN("", " (forced. Previous value: '", _current_kokkosp_lib, "')");
             }
-            OMNITRACE_VERBOSE_F(1, "Setting KOKKOS_PROFILE_LIBRARY=%s%s\n",
-                                "libomnitrace.so", _message.c_str());
+            OMNITRACE_BASIC_VERBOSE_F(1, "Setting KOKKOS_PROFILE_LIBRARY=%s%s\n",
+                                      "libomnitrace.so", _message.c_str());
             tim::set_env("KOKKOS_PROFILE_LIBRARY", "libomnitrace.so", _force);
         }
     }
@@ -936,7 +1135,7 @@ configure_mode_settings()
     {
         _set("OMNITRACE_USE_PERFETTO", false);
         _set("OMNITRACE_USE_TIMEMORY", false);
-        //_set("OMNITRACE_USE_CAUSAL", false);
+        _set("OMNITRACE_USE_CAUSAL", false);
         _set("OMNITRACE_USE_ROCM_SMI", false);
         _set("OMNITRACE_USE_ROCTRACER", false);
         _set("OMNITRACE_USE_ROCPROFILER", false);
@@ -1030,19 +1229,20 @@ configure_disabled_settings()
             auto _disabled = _config->disable_category(_category);
             _config->enable(_opt);
             for(auto&& itr : _disabled)
-                OMNITRACE_VERBOSE(3, "[%s=OFF]    disabled option :: '%s'\n",
-                                  _opt.c_str(), itr.c_str());
+                OMNITRACE_BASIC_VERBOSE(3, "[%s=OFF]    disabled option :: '%s'\n",
+                                        _opt.c_str(), itr.c_str());
             return false;
         }
         auto _enabled = _config->enable_category(_category);
         for(auto&& itr : _enabled)
-            OMNITRACE_VERBOSE(3, "[%s=ON]      enabled option :: '%s'\n", _opt.c_str(),
-                              itr.c_str());
+            OMNITRACE_BASIC_VERBOSE(3, "[%s=ON]      enabled option :: '%s'\n",
+                                    _opt.c_str(), itr.c_str());
         return true;
     };
 
     _handle_use_option("OMNITRACE_USE_SAMPLING", "sampling");
     _handle_use_option("OMNITRACE_USE_PROCESS_SAMPLING", "process_sampling");
+    _handle_use_option("OMNITRACE_USE_CAUSAL", "causal");
     _handle_use_option("OMNITRACE_USE_KOKKOSP", "kokkos");
     _handle_use_option("OMNITRACE_USE_PERFETTO", "perfetto");
     _handle_use_option("OMNITRACE_USE_TIMEMORY", "timemory");
@@ -1158,13 +1358,13 @@ handle_deprecated_setting(const std::string& _old, const std::string& _new, int 
             std::array<char, 79> _v = {};
             _v.fill('=');
             _v.back() = '\0';
-            OMNITRACE_VERBOSE(_verbose, "#%s#\n", _v.data());
+            OMNITRACE_BASIC_VERBOSE(_verbose, "#%s#\n", _v.data());
         };
         _separator();
-        OMNITRACE_VERBOSE(_verbose, "#\n");
-        OMNITRACE_VERBOSE(_verbose, "# DEPRECATION NOTICE:\n");
-        OMNITRACE_VERBOSE(_verbose, "#   %s is deprecated!\n", _old.c_str());
-        OMNITRACE_VERBOSE(_verbose, "#   Use %s instead!\n", _new.c_str());
+        OMNITRACE_BASIC_VERBOSE(_verbose, "#\n");
+        OMNITRACE_BASIC_VERBOSE(_verbose, "# DEPRECATION NOTICE:\n");
+        OMNITRACE_BASIC_VERBOSE(_verbose, "#   %s is deprecated!\n", _old.c_str());
+        OMNITRACE_BASIC_VERBOSE(_verbose, "#   Use %s instead!\n", _new.c_str());
 
         if(!_new_setting->second->get_environ_updated() &&
            !_new_setting->second->get_config_updated())
@@ -1177,15 +1377,15 @@ handle_deprecated_setting(const std::string& _old, const std::string& _new, int 
             {
                 std::string _cause =
                     (_old_setting->second->get_environ_updated()) ? "environ" : "config";
-                OMNITRACE_VERBOSE(_verbose, "#\n");
-                OMNITRACE_VERBOSE(_verbose, "# %s :: '%s' -> '%s'\n", _new.c_str(),
-                                  _before.c_str(), _after.c_str());
-                OMNITRACE_VERBOSE(_verbose, "#   via %s (%s)\n", _old.c_str(),
-                                  _cause.c_str());
+                OMNITRACE_BASIC_VERBOSE(_verbose, "#\n");
+                OMNITRACE_BASIC_VERBOSE(_verbose, "# %s :: '%s' -> '%s'\n", _new.c_str(),
+                                        _before.c_str(), _after.c_str());
+                OMNITRACE_BASIC_VERBOSE(_verbose, "#   via %s (%s)\n", _old.c_str(),
+                                        _cause.c_str());
             }
         }
 
-        OMNITRACE_VERBOSE(_verbose, "#\n");
+        OMNITRACE_BASIC_VERBOSE(_verbose, "#\n");
         _separator();
     }
 }
@@ -1203,7 +1403,23 @@ print_banner(std::ostream& _os)
      \______/  |__|  |__| |__| \__| |__|     |__|     | _| `._____/__/     \__\ \______||_______|
 
     )banner";
-    tim::log::stream(_os, tim::log::color::info()) << _banner;
+    auto               _tag    = std::string_view{ OMNITRACE_GIT_DESCRIBE };
+    auto               _rev    = std::string_view{ OMNITRACE_GIT_REVISION };
+    std::stringstream  _version_info{};
+    _version_info << "omnitrace v" << OMNITRACE_VERSION_STRING;
+    if(!_tag.empty() || !_rev.empty())
+    {
+        _version_info << " (";
+        if(!_tag.empty())
+        {
+            _version_info << "tag: " << OMNITRACE_GIT_DESCRIBE;
+            if(!_rev.empty()) _version_info << ", ";
+        }
+        if(!_rev.empty()) _version_info << "rev: " << OMNITRACE_GIT_REVISION;
+        _version_info << ")";
+    }
+
+    tim::log::stream(_os, tim::log::color::info()) << _banner << _version_info.str();
     _os << std::endl;
 }
 
@@ -1346,6 +1562,18 @@ get_exe_name()
     return _v;
 }
 
+std::string&
+get_exe_realpath()
+{
+    static std::string _v = []() {
+        auto _cmd_line = tim::read_command_line(process::get_id());
+        if(!_cmd_line.empty())
+            return filepath::realpath(_cmd_line.front(), nullptr, false);
+        return std::string{};
+    }();
+    return _v;
+}
+
 std::string
 get_config_file()
 {
@@ -1359,15 +1587,18 @@ get_mode()
     if(!settings_are_configured())
     {
         auto _mode = tim::get_env_choice<std::string>(
-            "OMNITRACE_MODE", "trace", { "trace", "sampling", "coverage" });
+            "OMNITRACE_MODE", "trace", { "trace", "sampling", "causal", "coverage" });
         if(_mode == "sampling")
             return Mode::Sampling;
+        else if(_mode == "causal")
+            return Mode::Causal;
         else if(_mode == "coverage")
             return Mode::Coverage;
         return Mode::Trace;
     }
     static auto _m =
         std::unordered_map<std::string_view, Mode>{ { "trace", Mode::Trace },
+                                                    { "causal", Mode::Causal },
                                                     { "sampling", Mode::Sampling },
                                                     { "coverage", Mode::Coverage } };
     static auto _v = get_config()->find("OMNITRACE_MODE");
@@ -1474,11 +1705,29 @@ get_use_timemory()
     return static_cast<tim::tsettings<bool>&>(*_v->second).get();
 }
 
+bool&
+get_use_causal()
+{
+    static auto _v = get_config()->find("OMNITRACE_USE_CAUSAL");
+    return static_cast<tim::tsettings<bool>&>(*_v->second).get();
+}
+
 bool
 get_use_roctracer()
 {
 #if defined(OMNITRACE_USE_ROCTRACER) && OMNITRACE_USE_ROCTRACER > 0
     static auto _v = get_config()->find("OMNITRACE_USE_ROCTRACER");
+    return static_cast<tim::tsettings<bool>&>(*_v->second).get();
+#else
+    return false;
+#endif
+}
+
+bool
+get_perfetto_roctracer_per_stream()
+{
+#if defined(OMNITRACE_USE_ROCTRACER) && OMNITRACE_USE_ROCTRACER > 0
+    static auto _v = get_config()->find("OMNITRACE_PERFETTO_ROCTRACER_PER_STREAM");
     return static_cast<tim::tsettings<bool>&>(*_v->second).get();
 #else
     return false;
@@ -1570,7 +1819,7 @@ get_use_kokkosp()
 bool
 get_use_kokkosp_kernel_logger()
 {
-    static auto _v = get_config()->find("OMNITRACE_KOKKOS_KERNEL_LOGGER");
+    static auto _v = get_config()->find("OMNITRACE_KOKKOSP_KERNEL_LOGGER");
     return static_cast<tim::tsettings<bool>&>(*_v->second).get();
 }
 
@@ -1597,6 +1846,13 @@ get_use_rcclp()
 {
     static auto _v = get_config()->find("OMNITRACE_USE_RCCLP");
     return static_cast<tim::tsettings<bool>&>(*_v->second).get();
+}
+
+size_t
+get_num_threads_hint()
+{
+    static auto _v = get_config()->find("OMNITRACE_NUM_THREADS_HINT");
+    return static_cast<tim::tsettings<size_t>&>(*_v->second).get();
 }
 
 bool
@@ -1639,6 +1895,20 @@ get_sampling_rtoffset()
 {
     static auto _v = get_config()->find("OMNITRACE_SAMPLING_REALTIME_OFFSET");
     return static_cast<tim::tsettings<int>&>(*_v->second).get();
+}
+
+bool
+get_trace_hip_api()
+{
+    static auto _v = get_config()->find("OMNITRACE_ROCTRACER_HIP_API");
+    return static_cast<tim::tsettings<bool>&>(*_v->second).get();
+}
+
+bool
+get_trace_hip_activity()
+{
+    static auto _v = get_config()->find("OMNITRACE_ROCTRACER_HIP_ACTIVITY");
+    return static_cast<tim::tsettings<bool>&>(*_v->second).get();
 }
 
 bool
@@ -1706,6 +1976,13 @@ get_perfetto_categories()
         if(_avail.count(itr) > 0) _ret.emplace(itr);
     }
     return _ret;
+}
+
+bool
+get_perfetto_annotations()
+{
+    static auto _v = get_config()->find("OMNITRACE_PERFETTO_ANNOTATIONS");
+    return static_cast<tim::tsettings<bool>&>(*_v->second).get();
 }
 
 uint64_t
@@ -1842,7 +2119,7 @@ get_sampling_tids()
 {
     static auto _v = get_config()->find("OMNITRACE_SAMPLING_TIDS");
     return parse_numeric_range<>(
-        static_cast<tim::tsettings<std::string>&>(*_v->second).get(), "thread IDs");
+        static_cast<tim::tsettings<std::string>&>(*_v->second).get(), "thread IDs", 1);
 }
 
 std::set<int64_t>
@@ -1850,7 +2127,7 @@ get_sampling_cpu_tids()
 {
     static auto _v = get_config()->find("OMNITRACE_SAMPLING_CPUTIME_TIDS");
     return parse_numeric_range<>(
-        static_cast<tim::tsettings<std::string>&>(*_v->second).get(), "thread IDs");
+        static_cast<tim::tsettings<std::string>&>(*_v->second).get(), "thread IDs", 1);
 }
 
 std::set<int64_t>
@@ -1858,7 +2135,7 @@ get_sampling_real_tids()
 {
     static auto _v = get_config()->find("OMNITRACE_SAMPLING_REALTIME_TIDS");
     return parse_numeric_range<>(
-        static_cast<tim::tsettings<std::string>&>(*_v->second).get(), "thread IDs");
+        static_cast<tim::tsettings<std::string>&>(*_v->second).get(), "thread IDs", 1);
 }
 
 bool
@@ -1866,6 +2143,13 @@ get_sampling_include_inlines()
 {
     static auto _v = get_config()->find("OMNITRACE_SAMPLING_INCLUDE_INLINES");
     return static_cast<tim::tsettings<bool>&>(*_v->second).get();
+}
+
+size_t
+get_sampling_allocator_size()
+{
+    static auto _v = get_config()->find("OMNITRACE_SAMPLING_ALLOCATOR_SIZE");
+    return std::max<size_t>(static_cast<tim::tsettings<size_t>&>(*_v->second).get(), 1);
 }
 
 int64_t
@@ -1995,12 +2279,16 @@ tmp_file::tmp_file(std::string _v)
 : filename{ std::move(_v) }
 {}
 
-tmp_file::~tmp_file() { close(); }
+tmp_file::~tmp_file()
+{
+    close();
+    remove();
+}
 
 void
 tmp_file::open(std::ios::openmode _mode)
 {
-    OMNITRACE_VERBOSE_F(2, "Opening temporary file '%s'...\n", filename.c_str());
+    OMNITRACE_BASIC_VERBOSE(2, "Opening temporary file '%s'...\n", filename.c_str());
 
     if(!filepath::exists(filename))
     {
@@ -2018,6 +2306,17 @@ tmp_file::close()
     if(stream.is_open()) stream.close();
 }
 
+void
+tmp_file::remove()
+{
+    close();
+    if(filepath::exists(filename))
+    {
+        OMNITRACE_BASIC_VERBOSE(2, "Removing temporary file '%s'...\n", filename.c_str());
+        ::remove(filename.c_str());
+    }
+}
+
 std::shared_ptr<tmp_file>
 get_tmp_file(std::string _basename, std::string _ext)
 {
@@ -2027,6 +2326,19 @@ get_tmp_file(std::string _basename, std::string _ext)
         std::unordered_map<std::string, std::shared_ptr<tmp_file>>{};
     static std::mutex            _mutex{};
     std::unique_lock<std::mutex> _lk{ _mutex };
+
+    cfg_fini_callbacks.emplace_back([]() {
+        for(auto itr : _existing_files)
+        {
+            if(itr.second)
+            {
+                itr.second->close();
+                itr.second->remove();
+                itr.second.reset();
+            }
+        }
+        _existing_files.clear();
+    });
 
     auto _cfg          = settings::compose_filename_config{};
     _cfg.use_suffix    = true;
@@ -2050,26 +2362,152 @@ get_tmp_file(std::string _basename, std::string _ext)
     _existing_files.emplace(_fname, std::move(_v));
     return _existing_files.at(_fname);
 }
+
+CausalMode
+get_causal_mode()
+{
+    if(!settings_are_configured())
+    {
+        auto _mode = tim::get_env_choice<std::string>("OMNITRACE_CAUSAL_MODE", "function",
+                                                      { "line", "function" });
+        if(_mode == "line") return CausalMode::Line;
+        return CausalMode::Function;
+    }
+    static auto _causal_mode = []() {
+        auto _m = std::unordered_map<std::string_view, CausalMode>{
+            { "line", CausalMode::Line },
+            { "func", CausalMode::Function },
+            { "function", CausalMode::Function }
+        };
+        auto _v = get_config()->find("OMNITRACE_CAUSAL_MODE");
+        try
+        {
+            return _m.at(static_cast<tim::tsettings<std::string>&>(*_v->second).get());
+        } catch(std::runtime_error& _e)
+        {
+            auto _mode = static_cast<tim::tsettings<std::string>&>(*_v->second).get();
+            std::stringstream _ss{};
+            for(const auto& itr : _v->second->get_choices())
+                _ss << ", " << itr;
+            auto _msg = (_ss.str().length() > 2) ? _ss.str().substr(2) : std::string{};
+            OMNITRACE_THROW("[%s] invalid causal mode %s. Choices: %s\n", __FUNCTION__,
+                            _mode.c_str(), _msg.c_str());
+        }
+        return CausalMode::Function;
+    }();
+    return _causal_mode;
+}
+
+bool
+get_causal_end_to_end()
+{
+    static auto _v = get_config()->find("OMNITRACE_CAUSAL_END_TO_END");
+    return static_cast<tim::tsettings<bool>&>(*_v->second).get();
+}
+
+std::vector<int64_t>
+get_causal_fixed_speedup()
+{
+    static auto _v = get_config()->find("OMNITRACE_CAUSAL_FIXED_SPEEDUP");
+    return parse_numeric_range<int64_t, std::vector<int64_t>>(
+        static_cast<tim::tsettings<std::string>&>(*_v->second).get(),
+        "causal fixed speedup", 5);
+}
+
+std::string
+get_causal_output_filename()
+{
+    static auto _v     = get_config()->find("OMNITRACE_CAUSAL_FILE");
+    auto        _fname = static_cast<tim::tsettings<std::string>&>(*_v->second).get();
+    for(auto&& itr : std::initializer_list<std::string>{ ".txt", ".json", ".xml" })
+    {
+        auto _pos = _fname.find(itr);
+        // if extension is found at end of string, remove
+        if(_pos != std::string::npos && (_pos + itr.length()) == _fname.length())
+            _fname = _fname.substr(0, _fname.length() - itr.length());
+    }
+    return _fname;
+}
+
+namespace
+{
+std::vector<std::string>
+format_causal_scopes(std::vector<std::string> _value, const std::string& _tag)
+{
+    const auto _config   = get_config();
+    const auto _main_re  = std::regex{ "(^|[^a-zA-Z])(MAIN|%MAIN%)($|[^a-zA-Z])" };
+    const auto _space_re = std::regex{ "^([ ]*)(.*)([ ]*)$" };
+    for(auto& itr : _value)
+    {
+        // replace any output/input keys, e.g. %argv0%
+        itr = settings::format(itr, _tag);
+        // replace MAIN or %MAIN% with (<exe_basename>|<exe_realpath>)
+        if(std::regex_search(itr, _main_re))
+        {
+            itr = std::regex_replace(
+                itr, _main_re,
+                join("", "$1", "(", get_exe_name(), "|", get_exe_realpath(), ")", "$3"));
+        }
+        // trim leading and trailing spaces since we didn't delimit spaces
+        if(std::regex_search(itr, _space_re))
+            itr = std::regex_replace(itr, _space_re, "$2");
+    }
+    return _value;
+}
+}  // namespace
+
+std::vector<std::string>
+get_causal_binary_scope()
+{
+    auto&&      _config = get_config();
+    static auto _v      = _config->find("OMNITRACE_CAUSAL_BINARY_SCOPE");
+    return format_causal_scopes(
+        tim::delimit(static_cast<tim::tsettings<std::string>&>(*_v->second).get(),
+                     "\t\"';"),
+        _config->get_tag());
+}
+
+std::vector<std::string>
+get_causal_source_scope()
+{
+    static auto _v = get_config()->find("OMNITRACE_CAUSAL_SOURCE_SCOPE");
+    return tim::delimit(static_cast<tim::tsettings<std::string>&>(*_v->second).get(),
+                        "\t\"';");
+}
+
+std::vector<std::string>
+get_causal_function_scope()
+{
+    static auto _v = get_config()->find("OMNITRACE_CAUSAL_FUNCTION_SCOPE");
+    return tim::delimit(static_cast<tim::tsettings<std::string>&>(*_v->second).get(),
+                        "\t\"';");
+}
+
+std::vector<std::string>
+get_causal_binary_exclude()
+{
+    auto&&      _config = get_config();
+    static auto _v      = _config->find("OMNITRACE_CAUSAL_BINARY_EXCLUDE");
+    return format_causal_scopes(
+        tim::delimit(static_cast<tim::tsettings<std::string>&>(*_v->second).get(),
+                     "\t\"';"),
+        _config->get_tag());
+}
+
+std::vector<std::string>
+get_causal_source_exclude()
+{
+    static auto _v = get_config()->find("OMNITRACE_CAUSAL_SOURCE_EXCLUDE");
+    return tim::delimit(static_cast<tim::tsettings<std::string>&>(*_v->second).get(),
+                        "\t\"';");
+}
+
+std::vector<std::string>
+get_causal_function_exclude()
+{
+    static auto _v = get_config()->find("OMNITRACE_CAUSAL_FUNCTION_EXCLUDE");
+    return tim::delimit(static_cast<tim::tsettings<std::string>&>(*_v->second).get(),
+                        "\t\"';");
+}
 }  // namespace config
-
-State&
-get_state()
-{
-    static State _v{ State::PreInit };
-    return _v;
-}
-
-State
-set_state(State _n)
-{
-    auto _o = get_state();
-    OMNITRACE_CONDITIONAL_PRINT_F(get_debug_init(), "Setting state :: %s -> %s\n",
-                                  std::to_string(_o).c_str(), std::to_string(_n).c_str());
-    // state should always be increased, not decreased
-    OMNITRACE_CI_BASIC_THROW(_n < _o,
-                             "State is being assigned to a lesser value :: %s -> %s",
-                             std::to_string(_o).c_str(), std::to_string(_n).c_str());
-    get_state() = _n;
-    return _o;
-}
 }  // namespace omnitrace

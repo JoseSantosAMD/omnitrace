@@ -96,8 +96,7 @@ struct perfetto_rusage
 unique_ptr_t<std::vector<std::string>>&
 get_papi_labels(int64_t _tid)
 {
-    static auto& _v =
-        papi_label_instances::instances(papi_label_instances::construct_on_init{});
+    static auto& _v = papi_label_instances::instances(construct_on_init{});
     return _v.at(_tid);
 }
 
@@ -119,8 +118,7 @@ get_backtrace_metrics_init(int64_t _tid)
 unique_ptr_t<bool>&
 get_sampler_running(int64_t _tid)
 {
-    static auto& _v = sampler_running_instances::instances(
-        sampler_running_instances::construct_on_init{}, false);
+    static auto& _v = sampler_running_instances::instances(construct_on_init{}, false);
     return _v.at(_tid);
 }
 }  // namespace
@@ -135,6 +133,13 @@ std::string
 backtrace_metrics::description()
 {
     return "Records sampling data";
+}
+
+std::vector<std::string>
+backtrace_metrics::get_hw_counter_labels(int64_t _tid)
+{
+    auto& _v = get_papi_labels(_tid);
+    return (_v) ? *_v : std::vector<std::string>{};
 }
 
 void
@@ -192,10 +197,8 @@ backtrace_metrics::configure(bool _setup, int64_t _tid)
             OMNITRACE_DEBUG("HW COUNTER: starting...\n");
             if(get_papi_vector(_tid))
             {
-                using common_type_t = typename hw_counters::common_type;
                 get_papi_vector(_tid)->start();
-                *get_papi_labels(_tid) =
-                    comp::papi_common<common_type_t>::get_config()->labels;
+                *get_papi_labels(_tid) = get_papi_vector(_tid)->get_config()->labels;
             }
         }
     }

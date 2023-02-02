@@ -24,6 +24,9 @@
 
 #include "library/defines.hpp"
 
+#include <cstdint>
+#include <string>
+
 namespace omnitrace
 {
 // used for specifying the state of omnitrace
@@ -49,11 +52,50 @@ enum class Mode : unsigned short
 {
     Trace = 0,
     Sampling,
+    Causal,
     Coverage
+};
+
+enum class CausalMode : unsigned short
+{
+    Line = 0,
+    Function
+};
+
+//
+//      Runtime configuration data
+//
+State
+get_state() OMNITRACE_HOT;
+
+ThreadState
+get_thread_state() OMNITRACE_HOT;
+
+/// returns old state
+State set_state(State) OMNITRACE_COLD;  // does not change often
+
+/// returns old state
+ThreadState set_thread_state(ThreadState) OMNITRACE_HOT;  // changes often
+
+/// return current state (state change may be ignored)
+ThreadState push_thread_state(ThreadState) OMNITRACE_HOT;
+
+/// return current state (state change may be ignored)
+ThreadState
+pop_thread_state() OMNITRACE_HOT;
+
+struct scoped_thread_state
+{
+    OMNITRACE_INLINE scoped_thread_state(ThreadState _v) { push_thread_state(_v); }
+    OMNITRACE_INLINE ~scoped_thread_state() { pop_thread_state(); }
 };
 }  // namespace omnitrace
 
-#include <string>
+#define OMNITRACE_SCOPED_THREAD_STATE(STATE)                                             \
+    ::omnitrace::scoped_thread_state OMNITRACE_VARIABLE(_scoped_thread_state_, __LINE__) \
+    {                                                                                    \
+        ::omnitrace::STATE                                                               \
+    }
 
 namespace std
 {
@@ -65,4 +107,7 @@ to_string(omnitrace::ThreadState _v);
 
 std::string
 to_string(omnitrace::Mode _v);
+
+std::string
+to_string(omnitrace::CausalMode _v);
 }  // namespace std

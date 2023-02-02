@@ -28,6 +28,7 @@ omnitrace_add_interface_library(omnitrace-ptl "Enables PTL support (tasking)")
 omnitrace_add_interface_library(omnitrace-papi "Enable PAPI support")
 omnitrace_add_interface_library(omnitrace-ompt "Enable OMPT support")
 omnitrace_add_interface_library(omnitrace-python "Enables Python support")
+omnitrace_add_interface_library(omnitrace-elfutils "Provides ElfUtils")
 omnitrace_add_interface_library(omnitrace-perfetto "Enables Perfetto support")
 omnitrace_add_interface_library(omnitrace-timemory "Provides timemory libraries")
 omnitrace_add_interface_library(omnitrace-timemory-config
@@ -49,8 +50,10 @@ set(OMNITRACE_EXTENSION_LIBRARIES
     omnitrace::omnitrace-perfetto)
 
 target_include_directories(
-    omnitrace-headers INTERFACE ${PROJECT_SOURCE_DIR}/source/lib/omnitrace
-                                ${PROJECT_BINARY_DIR}/source/lib/omnitrace)
+    omnitrace-headers
+    INTERFACE ${PROJECT_BINARY_DIR}/source/lib ${PROJECT_BINARY_DIR}/source/lib/omnitrace
+              ${PROJECT_SOURCE_DIR}/source/lib ${PROJECT_SOURCE_DIR}/source/lib/omnitrace
+              ${PROJECT_SOURCE_DIR}/source/lib/omnitrace-user)
 
 # include threading because of rooflines
 target_link_libraries(omnitrace-headers INTERFACE omnitrace::omnitrace-threading)
@@ -232,6 +235,9 @@ endif()
 #
 # ----------------------------------------------------------------------------------------#
 
+# suppress warning during CI that MPI_HEADERS_ALLOW_MPICH was unused
+set(_OMNITRACE_MPI_HEADERS_ALLOW_MPICH ${MPI_HEADERS_ALLOW_MPICH})
+
 if(OMNITRACE_USE_MPI)
     find_package(MPI ${omnitrace_FIND_QUIETLY} REQUIRED)
     target_link_libraries(omnitrace-mpi INTERFACE MPI::MPI_C MPI::MPI_CXX)
@@ -252,6 +258,19 @@ endif()
 
 omnitrace_target_compile_definitions(
     omnitrace-ompt INTERFACE OMNITRACE_USE_OMPT=$<BOOL:${OMNITRACE_USE_OMPT}>)
+
+# ----------------------------------------------------------------------------------------#
+#
+# ElfUtils
+#
+# ----------------------------------------------------------------------------------------#
+
+include(ElfUtils)
+
+target_include_directories(omnitrace-elfutils SYSTEM INTERFACE ${ElfUtils_INCLUDE_DIRS})
+target_compile_definitions(omnitrace-elfutils INTERFACE ${ElfUtils_DEFINITIONS})
+target_link_directories(omnitrace-elfutils INTERFACE ${ElfUtils_LIBRARY_DIRS})
+target_link_libraries(omnitrace-elfutils INTERFACE ${ElfUtils_LIBRARIES})
 
 # ----------------------------------------------------------------------------------------#
 #
@@ -372,7 +391,7 @@ else()
             OMNITRACE_DYNINST_API_RT dyninstAPI_RT
             HINTS ${Dyninst_ROOT_DIR} ${Dyninst_DIR}
             PATHS ${Dyninst_ROOT_DIR} ${Dyninst_DIR}
-            PATH_SUFFIXES lib)
+            PATH_SUFFIXES lib NO_CACHE)
 
         if(OMNITRACE_DYNINST_API_RT)
             omnitrace_target_compile_definitions(

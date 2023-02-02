@@ -38,7 +38,7 @@ namespace component
 {
 struct exit_gotcha : tim::component::base<exit_gotcha, void>
 {
-    static constexpr size_t gotcha_capacity = 3;
+    static constexpr size_t gotcha_capacity = 4;
 
     using gotcha_data  = tim::component::gotcha_data;
     using exit_func_t  = void (*)(int);
@@ -56,10 +56,18 @@ struct exit_gotcha : tim::component::base<exit_gotcha, void>
     static inline void start() {}
     static inline void stop() {}
 
-    // exit
+    // exit / _Exit / quick_exit
     void operator()(const gotcha_data&, exit_func_t, int) const;
     // abort
     void operator()(const gotcha_data&, abort_func_t) const;
+
+    struct exit_info
+    {
+        bool is_known  = false;
+        bool is_quick  = false;
+        int  exit_code = EXIT_SUCCESS;
+    };
+    static exit_info get_exit_info();
 };
 }  // namespace component
 

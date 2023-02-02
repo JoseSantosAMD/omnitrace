@@ -79,6 +79,9 @@ print_settings(bool include_env = true);
 std::string&
 get_exe_name();
 
+std::string&
+get_exe_realpath();
+
 template <typename Tp>
 bool
 set_setting_value(const std::string& _name, Tp&& _v)
@@ -166,6 +169,9 @@ get_use_perfetto() OMNITRACE_HOT;
 bool&
 get_use_timemory() OMNITRACE_HOT;
 
+bool&
+get_use_causal() OMNITRACE_HOT;
+
 bool
 get_use_roctracer() OMNITRACE_HOT;
 
@@ -221,6 +227,12 @@ bool
 get_use_rcclp();
 
 bool
+get_trace_hip_api();
+
+bool
+get_trace_hip_activity();
+
+bool
 get_trace_hsa_api();
 
 bool
@@ -247,6 +259,9 @@ get_perfetto_fill_policy();
 std::set<std::string>
 get_perfetto_categories();
 
+bool
+get_perfetto_annotations() OMNITRACE_HOT;
+
 uint64_t
 get_critical_trace_update_freq();
 
@@ -262,6 +277,9 @@ get_backend();
 // make this visible so omnitrace-avail can call it
 std::string
 get_perfetto_output_filename();
+
+bool
+get_perfetto_roctracer_per_stream() OMNITRACE_HOT;
 
 int64_t
 get_critical_trace_count();
@@ -301,6 +319,12 @@ get_sampling_real_tids();
 
 bool
 get_sampling_include_inlines();
+
+size_t
+get_num_threads_hint();
+
+size_t
+get_sampling_allocator_size();
 
 double
 get_process_sampling_freq();
@@ -345,8 +369,9 @@ struct tmp_file
 
     void open(std::ios::openmode = std::ios::binary | std::ios::in | std::ios::out);
     void close();
+    void remove();
 
-    operator bool() const { return stream.is_open() && stream.good(); }
+    explicit operator bool() const { return stream.is_open() && stream.good(); }
 
     std::string  filename = {};
     std::fstream stream   = {};
@@ -354,14 +379,35 @@ struct tmp_file
 
 std::shared_ptr<tmp_file>
 get_tmp_file(std::string _basename, std::string _ext = "dat");
+
+CausalMode
+get_causal_mode();
+
+bool
+get_causal_end_to_end();
+
+std::vector<int64_t>
+get_causal_fixed_speedup();
+
+std::string
+get_causal_output_filename();
+
+std::vector<std::string>
+get_causal_binary_scope();
+
+std::vector<std::string>
+get_causal_source_scope();
+
+std::vector<std::string>
+get_causal_function_scope();
+
+std::vector<std::string>
+get_causal_binary_exclude();
+
+std::vector<std::string>
+get_causal_source_exclude();
+
+std::vector<std::string>
+get_causal_function_exclude();
 }  // namespace config
-
-//
-//      Runtime configuration data
-//
-State&
-get_state() TIMEMORY_HOT;
-
-/// returns old state
-State set_state(State);
 }  // namespace omnitrace

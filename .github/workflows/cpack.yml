@@ -2,9 +2,14 @@ name: Installer Packaging (CPack)
 run-name: cpack
 
 on:
+  workflow_dispatch:
   push:
     branches: [main, releases/**]
-    tags: []
+    tags:
+      - v*
+    paths-ignore:
+      - '*.md'
+      - 'source/docs/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,23 +19,8 @@ env:
   GIT_DISCOVERY_ACROSS_FILESYSTEM: 1
 
 jobs:
-  release:
+  installers:
     if: github.repository == 'AMDResearch/omnitrace'
-    runs-on: ubuntu-20.04
-    permissions:
-      contents: write
-      packages: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Generate Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          draft: True
-          generate_release_notes: True
-
-  ubuntu:
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -71,13 +61,19 @@ jobs:
           - os-distro: "ubuntu"
             os-version: "20.04"
             rocm-version: "5.3"
-          # ubuntu 20.04
+          - os-distro: "ubuntu"
+            os-version: "20.04"
+            rocm-version: "5.4"
+          # ubuntu 22.04
           - os-distro: "ubuntu"
             os-version: "22.04"
             rocm-version: "0.0"
           - os-distro: "ubuntu"
             os-version: "22.04"
             rocm-version: "5.3"
+          - os-distro: "ubuntu"
+            os-version: "22.04"
+            rocm-version: "5.4"
           # opensuse 15.3
           - os-distro: "opensuse"
             os-version: "15.3"
@@ -97,6 +93,9 @@ jobs:
           - os-distro: "opensuse"
             os-version: "15.3"
             rocm-version: "5.3"
+          - os-distro: "opensuse"
+            os-version: "15.3"
+            rocm-version: "5.4"
           # opensuse 15.4
           - os-distro: "opensuse"
             os-version: "15.4"
@@ -113,6 +112,9 @@ jobs:
           - os-distro: "opensuse"
             os-version: "15.4"
             rocm-version: "5.3"
+          - os-distro: "opensuse"
+            os-version: "15.4"
+            rocm-version: "5.4"
 
     steps:
       - uses: actions/checkout@v3
@@ -130,7 +132,7 @@ jobs:
           echo "CI_SCRIPT_ARGS=--rocm +python" >> $GITHUB_ENV
 
       - name: Build Base Container
-        timeout-minutes: 20
+        timeout-minutes: 30
         run: |
           pushd docker
           ./build-docker.sh --distro ${{ matrix.os-distro }} --versions ${{ matrix.os-version }} --rocm-versions ${{ matrix.rocm-version }}

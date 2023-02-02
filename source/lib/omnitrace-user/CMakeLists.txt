@@ -17,6 +17,7 @@ target_sources(
     omnitrace-user-library
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/user.cpp
             ${CMAKE_CURRENT_SOURCE_DIR}/omnitrace/user.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/omnitrace/causal.h
             ${CMAKE_CURRENT_SOURCE_DIR}/omnitrace/types.h)
 target_include_directories(
     omnitrace-user-library PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
@@ -35,9 +36,12 @@ set_target_properties(
 
 omnitrace_strip_target(omnitrace-user-library)
 
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/omnitrace/user.h
-              ${CMAKE_CURRENT_SOURCE_DIR}/omnitrace/types.h
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/omnitrace)
+install(
+    FILES ${CMAKE_CURRENT_SOURCE_DIR}/omnitrace/user.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/omnitrace/types.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/omnitrace/causal.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/omnitrace/categories.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/omnitrace)
 
 install(
     TARGETS omnitrace-user-library

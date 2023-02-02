@@ -7,6 +7,7 @@
 : ${PYTHON_VERSIONS:="6 7 8 9 10"}
 : ${BUILD_CI:=""}
 : ${PUSH:=0}
+: ${RETRY:=3}
 
 set -e
 
@@ -32,7 +33,9 @@ usage()
     print_default_option versions "[VERSION] [VERSION...]" "Ubuntu or OpenSUSE release" "${VERSIONS}"
     print_default_option rocm-versions "[VERSION] [VERSION...]" "ROCm versions" "${ROCM_VERSIONS}"
     print_default_option python-versions "[VERSION] [VERSION...]" "Python 3 minor releases" "${PYTHON_VERSIONS}"
-    print_default_option user "[USERNAME]" "DockerHub username" "${USER}"
+    print_default_option "user -u" "[USERNAME]" "DockerHub username" "${USER}"
+    print_default_option "retry -r" "[N]" "Number of attempts to build (to account for network errors)" "${RETRY}"
+    print_default_option push "" "Push the image to Dockerhub" ""
     #print_default_option lto "[on|off]" "Enable LTO" "${LTO}"
 }
 
@@ -46,7 +49,31 @@ send-error()
 verbose-run()
 {
     echo -e "\n### Executing \"${@}\"... ###\n"
-    eval $@
+    eval "${@}"
+}
+
+verbose-build()
+{
+    echo -e "\n### Executing \"${@}\" a maximum of ${RETRY} times... ###\n"
+    for i in $(seq 1 1 ${RETRY})
+    do
+        set +e
+        eval "${@}"
+        local RETC=$?
+        set -e
+        if [ "${RETC}" -eq 0 ]; then
+            break
+        else
+            echo -en "\n### Command failed with error code ${RETC}... "
+            if [ "${i}" -ne "${RETRY}" ]; then
+                echo -e "Retrying... ###\n"
+                sleep 3
+            else
+                echo -e "Exiting... ###\n"
+                exit ${RETC}
+            fi
+        fi
+    done
 }
 
 reset-last()
@@ -92,6 +119,11 @@ do
         --push)
             PUSH=1
             ;;
+        --retry|-r)
+            shift
+            RETRY=${1}
+            reset-last
+            ;;
         "--*")
             send-error "Unsupported argument at position $((${n} + 1)) :: ${1}"
             ;;
@@ -111,6 +143,9 @@ if [ ! -f ${DOCKER_FILE} ]; then send-error "File \"${DOCKER_FILE}\" not found";
 
 for VERSION in ${VERSIONS}
 do
+    VERSION_MAJOR=$(echo ${VERSION} | sed 's/\./ /g' | awk '{print $1}')
+    VERSION_MINOR=$(echo ${VERSION} | sed 's/\./ /g' | awk '{print $2}')
+    VERSION_PATCH=$(echo ${VERSION} | sed 's/\./ /g' | awk '{print $3}')
     for ROCM_VERSION in ${ROCM_VERSIONS}
     do
         CONTAINER=${USER}/omnitrace:release-base-${DISTRO}-${VERSION}-rocm-${ROCM_VERSION}
@@ -131,7 +166,7 @@ do
                 4.1* | 4.0*)
                     ROCM_REPO_DIST="xenial"
                     ;;
-                5.3*)
+                5.3* | 5.4*)
                     case "${VERSION}" in
                         22.04)
                             ROCM_REPO_DIST="jammy"
@@ -149,7 +184,7 @@ do
                 *)
                     ;;
             esac
-            verbose-run docker build . -f ${DOCKER_FILE} --tag ${CONTAINER} --build-arg DISTRO=${DISTRO} --build-arg VERSION=${VERSION} --build-arg ROCM_VERSION=${ROCM_VERSION} --build-arg ROCM_REPO_VERSION=${ROCM_REPO_VERSION} --build-arg ROCM_REPO_DIST=${ROCM_REPO_DIST} --build-arg PYTHON_VERSIONS=\"${PYTHON_VERSIONS}\"
+            verbose-build docker build . -f ${DOCKER_FILE} --tag ${CONTAINER} --build-arg DISTRO=${DISTRO} --build-arg VERSION=${VERSION} --build-arg ROCM_VERSION=${ROCM_VERSION} --build-arg ROCM_REPO_VERSION=${ROCM_REPO_VERSION} --build-arg ROCM_REPO_DIST=${ROCM_REPO_DIST} --build-arg PYTHON_VERSIONS=\"${PYTHON_VERSIONS}\"
         elif [ "${DISTRO}" = "centos" ]; then
             case "${VERSION}" in
                 7)
@@ -192,7 +227,7 @@ do
                     send-error "Unsupported combination :: ${DISTRO}-${VERSION} + ROCm ${ROCM_VERSION}"
                     ;;
             esac
-            verbose-run docker build . -f ${DOCKER_FILE} --tag ${CONTAINER} --build-arg DISTRO=${DISTRO} --build-arg VERSION=${VERSION} --build-arg ROCM_VERSION=${ROCM_VERSION} --build-arg TOOLSET_VERSION=${TOOLSET_VERSION} --build-arg AMDGPU_RPM=${ROCM_RPM} --build-arg PYTHON_VERSIONS=\"${PYTHON_VERSIONS}\"
+            verbose-build docker build . -f ${DOCKER_FILE} --tag ${CONTAINER} --build-arg DISTRO=${DISTRO} --build-arg VERSION=${VERSION} --build-arg ROCM_VERSION=${ROCM_VERSION} --build-arg TOOLSET_VERSION=${TOOLSET_VERSION} --build-arg AMDGPU_RPM=${ROCM_RPM} --build-arg PYTHON_VERSIONS=\"${PYTHON_VERSIONS}\"
         elif [ "${DISTRO}" = "opensuse" ]; then
             case "${VERSION}" in
                 15.*)
@@ -204,6 +239,9 @@ do
                     ;;
             esac
             case "${ROCM_VERSION}" in
+                5.4 | 5.4.*)
+                    ROCM_RPM=${ROCM_VERSION}/sle/${VERSION}/amdgpu-install-${ROCM_MAJOR}.${ROCM_MINOR}.${ROCM_VERSN}-1.noarch.rpm
+                    ;;
                 5.3 | 5.3.*)
                     ROCM_RPM=${ROCM_VERSION}/sle/${VERSION}/amdgpu-install-${ROCM_MAJOR}.${ROCM_MINOR}.${ROCM_VERSN}-1.noarch.rpm
                     ;;
@@ -225,7 +263,8 @@ do
                     send-error "Unsupported combination :: ${DISTRO}-${VERSION} + ROCm ${ROCM_VERSION}"
                 ;;
             esac
-            verbose-run docker build . -f ${DOCKER_FILE} --tag ${CONTAINER} --build-arg DISTRO=${DISTRO_IMAGE} --build-arg VERSION=${VERSION} --build-arg ROCM_VERSION=${ROCM_VERSION} --build-arg AMDGPU_RPM=${ROCM_RPM} --build-arg PYTHON_VERSIONS=\"${PYTHON_VERSIONS}\"
+            PERL_REPO="SLE_${VERSION_MAJOR}_SP${VERSION_MINOR}"
+            verbose-build docker build . -f ${DOCKER_FILE} --tag ${CONTAINER} --build-arg DISTRO=${DISTRO_IMAGE} --build-arg VERSION=${VERSION} --build-arg ROCM_VERSION=${ROCM_VERSION} --build-arg AMDGPU_RPM=${ROCM_RPM} --build-arg PERL_REPO=${PERL_REPO} --build-arg PYTHON_VERSIONS=\"${PYTHON_VERSIONS}\"
         fi
         if [ "${PUSH}" -ne 0 ]; then
             docker push ${CONTAINER}

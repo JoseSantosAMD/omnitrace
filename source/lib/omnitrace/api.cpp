@@ -46,7 +46,7 @@ omnitrace_push_region(const char* _name)
         omnitrace_push_region_hidden(_name);
     } catch(std::exception& _e)
     {
-        OMNITRACE_VERBOSE_F(1, "Exception caught: %s\n", _e.what());
+        OMNITRACE_WARNING_F(1, "Exception caught: %s\n", _e.what());
         return -1;
     }
     return 0;
@@ -60,10 +60,57 @@ omnitrace_pop_region(const char* _name)
         omnitrace_pop_region_hidden(_name);
     } catch(std::exception& _e)
     {
-        OMNITRACE_VERBOSE_F(1, "Exception caught: %s\n", _e.what());
+        OMNITRACE_WARNING_F(1, "Exception caught: %s\n", _e.what());
         return -1;
     }
     return 0;
+}
+
+extern "C" int
+omnitrace_push_category_region(omnitrace_category_t _category, const char* _name,
+                               omnitrace_annotation_t* _annotations,
+                               size_t                  _annotation_count)
+{
+    try
+    {
+        omnitrace_push_category_region_hidden(_category, _name, _annotations,
+                                              _annotation_count);
+    } catch(std::exception& _e)
+    {
+        OMNITRACE_WARNING_F(1, "Exception caught: %s\n", _e.what());
+        return -1;
+    }
+    return 0;
+}
+
+extern "C" int
+omnitrace_pop_category_region(omnitrace_category_t _category, const char* _name,
+                              omnitrace_annotation_t* _annotations,
+                              size_t                  _annotation_count)
+{
+    try
+    {
+        omnitrace_pop_category_region_hidden(_category, _name, _annotations,
+                                             _annotation_count);
+    } catch(std::exception& _e)
+    {
+        OMNITRACE_WARNING_F(1, "Exception caught: %s\n", _e.what());
+        return -1;
+    }
+    return 0;
+}
+
+extern "C" void
+omnitrace_progress(const char* _name)
+{
+    omnitrace_progress_hidden(_name);
+}
+
+extern "C" void
+omnitrace_annotated_progress(const char* _name, omnitrace_annotation_t* _annotations,
+                             size_t _annotation_count)
+{
+    omnitrace_annotated_progress_hidden(_name, _annotations, _annotation_count);
 }
 
 extern "C" void

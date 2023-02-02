@@ -23,6 +23,7 @@
 #pragma once
 
 #include "api.hpp"
+#include "library/causal/components/causal_gotcha.hpp"
 #include "library/common.hpp"
 #include "library/components/exit_gotcha.hpp"
 #include "library/components/fork_gotcha.hpp"
@@ -51,7 +52,8 @@ using preinit_bundle_t =
     tim::lightweight_tuple<exit_gotcha_t, fork_gotcha_t, mpi_gotcha_t>;
 
 // started during init phase
-using init_bundle_t = tim::lightweight_tuple<pthread_gotcha, component::numa_gotcha>;
+using init_bundle_t = tim::lightweight_tuple<causal::component::causal_gotcha,
+                                             pthread_gotcha, component::numa_gotcha>;
 
 // bundle of components around omnitrace_init and omnitrace_finalize
 using main_bundle_t =
@@ -107,23 +109,6 @@ get_cpu_cid_entry(uint64_t _cid, int64_t _tid = threading::get_id()) TIMEMORY_HO
 tim::mutex_t&
 get_cpu_cid_stack_lock(int64_t _tid = threading::get_id()) TIMEMORY_HOT;
 
-ThreadState&
-get_thread_state() TIMEMORY_HOT;
-
-/// returns old state
-ThreadState set_thread_state(ThreadState) TIMEMORY_HOT;
-
-ThreadState push_thread_state(ThreadState) TIMEMORY_HOT;
-
-ThreadState
-pop_thread_state() TIMEMORY_HOT;
-
-struct scoped_thread_state
-{
-    scoped_thread_state(ThreadState _v) { push_thread_state(_v); }
-    ~scoped_thread_state() { pop_thread_state(); }
-};
-
 // query current value
 bool
 sampling_enabled_on_child_threads();
@@ -146,12 +131,6 @@ struct scoped_child_sampling
     ~scoped_child_sampling() { pop_enable_sampling_on_child_threads(); }
 };
 }  // namespace omnitrace
-
-#define OMNITRACE_SCOPED_THREAD_STATE(STATE)                                             \
-    ::omnitrace::scoped_thread_state OMNITRACE_VARIABLE(_scoped_thread_state_, __LINE__) \
-    {                                                                                    \
-        ::omnitrace::STATE                                                               \
-    }
 
 #define OMNITRACE_SCOPED_SAMPLING_ON_CHILD_THREADS(VALUE)                                \
     ::omnitrace::scoped_child_sampling OMNITRACE_VARIABLE(_scoped_child_sampling_,       \

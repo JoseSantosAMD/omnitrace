@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 #include "omnitrace.hpp"
+#include "common/defines.h"
 #include "fwd.hpp"
 #include "log.hpp"
 
@@ -124,6 +125,7 @@ regexvec_t       file_include                  = {};
 regexvec_t       file_exclude                  = {};
 regexvec_t       file_restrict                 = {};
 regexvec_t       func_restrict                 = {};
+regexvec_t       caller_include                = {};
 CodeCoverageMode coverage_mode                 = CODECOV_NONE;
 
 std::unique_ptr<std::ofstream> log_ofs = {};
@@ -348,10 +350,6 @@ main(int argc, char** argv)
                   << std::endl;
     }
 
-    verbprintf(0, "\n");
-    verbprintf(0, "command :: '%s'...\n", cmd_string(_cmdc, _cmdv).c_str());
-    verbprintf(0, "\n");
-
     if(_cmdc > 0) cmdv0 = _cmdv[0];
 
     // now can loop through the options.  If the first character is '-', then we know
@@ -363,6 +361,9 @@ main(int argc, char** argv)
     string_t extra_help = "-- <CMD> <ARGS>";
 
     parser.enable_help();
+    parser.enable_version("omnitrace", "v" OMNITRACE_VERSION_STRING,
+                          OMNITRACE_GIT_DESCRIBE, OMNITRACE_GIT_REVISION);
+
     parser.add_argument({ "" }, "");
     parser.add_argument({ "[DEBUG OPTIONS]" }, "");
     parser.add_argument({ "" }, "");
@@ -633,6 +634,9 @@ main(int argc, char** argv)
     parser.add_argument({ "-R", "--function-restrict" },
                         "Regex(es) for restricting functions only to those "
                         "that match the provided regular-expressions");
+    parser.add_argument({ "--caller-include" },
+                        "Regex(es) for including functions that call the "
+                        "listed functions (despite heuristics)");
     parser.add_argument({ "-MI", "--module-include" },
                         "Regex(es) for selecting modules/files/libraries "
                         "(despite heuristics)");
@@ -871,6 +875,10 @@ main(int argc, char** argv)
         return 0;
     }
 
+    verbprintf(0, "\n");
+    verbprintf(0, "command :: '%s'...\n", cmd_string(_cmdc, _cmdv).c_str());
+    verbprintf(0, "\n");
+
     if(err)
     {
         std::cerr << err << std::endl;
@@ -1101,6 +1109,8 @@ main(int argc, char** argv)
         add_regex(func_include, tim::get_env<string_t>("OMNITRACE_REGEX_INCLUDE", ""));
         add_regex(func_exclude, tim::get_env<string_t>("OMNITRACE_REGEX_EXCLUDE", ""));
         add_regex(func_restrict, tim::get_env<string_t>("OMNITRACE_REGEX_RESTRICT", ""));
+        add_regex(caller_include,
+                  tim::get_env<string_t>("OMNITRACE_REGEX_CALLER_INCLUDE"));
 
         add_regex(file_include,
                   tim::get_env<string_t>("OMNITRACE_REGEX_MODULE_INCLUDE", ""));
@@ -1123,6 +1133,7 @@ main(int argc, char** argv)
         _parse_regex_option("function-include", func_include);
         _parse_regex_option("function-exclude", func_exclude);
         _parse_regex_option("function-restrict", func_restrict);
+        _parse_regex_option("caller-include", caller_include);
         _parse_regex_option("module-include", file_include);
         _parse_regex_option("module-exclude", file_exclude);
         _parse_regex_option("module-restrict", file_restrict);
@@ -2190,18 +2201,18 @@ main(int argc, char** argv)
             verbprintf(0, "Consider instrumenting the relevant libraries...\n");
             verbprintf(0, "\n");
 
-            using TIMEMORY_PIPE = tim::popen::TIMEMORY_PIPE;
+            auto cmdv_envp = std::array<char*, 2>{};
+            cmdv_envp.fill(nullptr);
+            cmdv_envp.at(0) = strdup("LD_TRACE_LOADED_OBJECTS=1");
+            auto ldd        = tim::popen::popen(cmdv0.c_str(), nullptr, cmdv_envp.data());
+            auto linked_libs = tim::popen::read_ldd_fork(ldd);
+            auto perr        = tim::popen::pclose(ldd);
+            for(auto& itr : cmdv_envp)
+                ::free(itr);
 
-            tim::set_env("LD_TRACE_LOADED_OBJECTS", "1", 1);
-            TIMEMORY_PIPE* ldd = tim::popen::popen(cmdv0.c_str());
-            tim::set_env("LD_TRACE_LOADED_OBJECTS", "0", 1);
-
-            strvec_t linked_libraries = tim::popen::read_ldd_fork(ldd);
-
-            auto perr = tim::popen::pclose(ldd);
             if(perr != 0) perror("Error in omnitrace_fork");
 
-            for(const auto& itr : linked_libraries)
+            for(const auto& itr : linked_libs)
                 verbprintf(0, "\t%s\n", itr.c_str());
 
             verbprintf(0, "\n");

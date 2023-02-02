@@ -32,6 +32,7 @@
 
 #include <timemory/backends/cpu.hpp>
 #include <timemory/backends/threading.hpp>
+#include <timemory/hash/types.hpp>
 #include <timemory/utility/types.hpp>
 
 #include <atomic>
@@ -100,7 +101,7 @@ get_roctracer_hip_data(int64_t _tid = threading::get_id())
 {
     using data_t        = std::unordered_map<uint64_t, roctracer_bundle_t>;
     using thread_data_t = thread_data<data_t, category::roctracer>;
-    static auto& _v     = thread_data_t::instances(thread_data_t::construct_on_init{});
+    static auto& _v     = thread_data_t::instances(construct_on_init{});
     return _v.at(_tid);
 }
 
@@ -118,7 +119,7 @@ get_roctracer_tid_data()
     return _v;
 }
 
-using cid_tuple_t = std::tuple<uint64_t, uint64_t, uint32_t>;
+using cid_tuple_t = std::tuple<uint64_t, uint64_t, uint32_t, uintptr_t>;
 struct cid_data : cid_tuple_t
 {
     using cid_tuple_t::cid_tuple_t;
@@ -128,10 +129,12 @@ struct cid_data : cid_tuple_t
     auto& cid() { return std::get<0>(*this); }
     auto& pcid() { return std::get<1>(*this); }
     auto& depth() { return std::get<2>(*this); }
+    auto& queue() { return std::get<3>(*this); }
 
     auto cid() const { return std::get<0>(*this); }
     auto pcid() const { return std::get<1>(*this); }
     auto depth() const { return std::get<2>(*this); }
+    auto queue() const { return std::get<3>(*this); }
 };
 
 auto&
@@ -139,7 +142,7 @@ get_roctracer_cid_data(int64_t _tid = threading::get_id())
 {
     using thread_data_t =
         thread_data<std::unordered_map<uint64_t, cid_data>, category::roctracer>;
-    static auto& _v = thread_data_t::instances(thread_data_t::construct_on_init{});
+    static auto& _v = thread_data_t::instances(construct_on_init{});
     return *_v.at(_tid);
 }
 
@@ -148,7 +151,7 @@ get_hip_activity_callbacks(int64_t _tid = threading::get_id())
 {
     using thread_data_t =
         thread_data<std::vector<std::function<void()>>, category::roctracer>;
-    static auto& _v = thread_data_t::instances(thread_data_t::construct_on_init{});
+    static auto& _v = thread_data_t::instances(construct_on_init{});
     return _v.at(_tid);
 }
 
@@ -305,9 +308,21 @@ hsa_api_callback(uint32_t domain, uint32_t cid, const void* callback_data, void*
                     uint64_t _beg_ts = begin_timestamp;
                     uint64_t _end_ts = end_timestamp;
                     tracing::push_perfetto_ts(category::rocm_hsa{}, _name, _beg_ts,
-                                              "begin_ns", _beg_ts);
+                                              [&](perfetto::EventContext ctx) {
+                                                  if(config::get_perfetto_annotations())
+                                                  {
+                                                      tracing::add_perfetto_annotation(
+                                                          ctx, "begin_ns", _beg_ts);
+                                                  }
+                                              });
                     tracing::pop_perfetto_ts(category::rocm_hsa{}, _name, _end_ts,
-                                             "end_ns", _end_ts);
+                                             [&](perfetto::EventContext ctx) {
+                                                 if(config::get_perfetto_annotations())
+                                                 {
+                                                     tracing::add_perfetto_annotation(
+                                                         ctx, "end_ns", _end_ts);
+                                                 }
+                                             });
                 }
 
                 if(get_use_timemory())
@@ -332,23 +347,12 @@ hsa_api_callback(uint32_t domain, uint32_t cid, const void* callback_data, void*
 }
 
 void
-hsa_activity_callback(uint32_t op, activity_record_t* record, void* arg)
+hsa_activity_callback(uint32_t op, const activity_record_t* record, void* arg)
 {
     if(get_state() != State::Active || !trait::runtime_enabled<comp::roctracer>::get())
         return;
 
     OMNITRACE_SCOPED_THREAD_STATE(ThreadState::Internal);
-
-    static thread_local std::once_flag _once{};
-    std::call_once(_once, []() {
-        threading::offset_this_id(true);
-        if(threading::get_id() != 0)
-        {
-            sampling::block_signals();
-            threading::set_thread_name("roctracer.hsa");
-            sampling::shutdown();
-        }
-    });
 
     auto&& _protect = comp::roctracer::protect_flush_activity();
     (void) _protect;
@@ -378,8 +382,20 @@ hsa_activity_callback(uint32_t op, activity_record_t* record, void* arg)
     {
         uint64_t _beg = _beg_ns;
         uint64_t _end = _end_ns;
-        tracing::push_perfetto_ts(category::device_hsa{}, *_name, _beg, "begin_ns", _beg);
-        tracing::pop_perfetto_ts(category::device_hsa{}, *_name, _end, "end_ns", _end);
+        tracing::push_perfetto_ts(
+            category::device_hsa{}, *_name, _beg, [&](perfetto::EventContext ctx) {
+                if(config::get_perfetto_annotations())
+                {
+                    tracing::add_perfetto_annotation(ctx, "begin_ns", _beg);
+                }
+            });
+        tracing::pop_perfetto_ts(
+            category::device_hsa{}, *_name, _end, [&](perfetto::EventContext ctx) {
+                if(config::get_perfetto_annotations())
+                {
+                    tracing::add_perfetto_annotation(ctx, "end_ns", _end);
+                }
+            });
     }
 
     auto _func = [_beg_ns, _end_ns, _name]() {
@@ -701,9 +717,19 @@ hip_api_callback(uint32_t domain, uint32_t cid, const void* callback_data, void*
             auto _api_id = static_cast<hip_api_id_t>(cid);
             tracing::push_perfetto_ts(
                 category::rocm_hip{}, op_name, _ts, perfetto::Flow::ProcessScoped(_cid),
-                "begin_ns", static_cast<uint64_t>(_ts), "pcid", _parent_cid, "cid", _cid,
-                "device", _device_id, "tid", _tid, "depth", _depth, "corr_id", _corr_id,
-                "args", hip_api_string(_api_id, data));
+                [&](perfetto::EventContext ctx) {
+                    if(config::get_perfetto_annotations())
+                    {
+                        tracing::add_perfetto_annotation(ctx, "begin_ns", _ts);
+                        tracing::add_perfetto_annotation(ctx, "pcid", _parent_cid);
+                        tracing::add_perfetto_annotation(ctx, "device", _device_id);
+                        tracing::add_perfetto_annotation(ctx, "tid", _tid);
+                        tracing::add_perfetto_annotation(ctx, "depth", _depth);
+                        tracing::add_perfetto_annotation(ctx, "corr_id", _corr_id);
+                        tracing::add_perfetto_annotation(ctx, "args",
+                                                         hip_api_string(_api_id, data));
+                    }
+                });
         }
         if(get_use_timemory())
         {
@@ -726,8 +752,8 @@ hip_api_callback(uint32_t domain, uint32_t cid, const void* callback_data, void*
                 critical_trace::add_hash_id(op_name), _depth);
         }
 
-        get_roctracer_cid_data(_tid).emplace(_corr_id,
-                                             cid_data{ _cid, _parent_cid, _depth });
+        get_roctracer_cid_data(_tid).emplace(
+            _corr_id, cid_data{ _cid, _parent_cid, _depth, _queue });
 
         hip_exec_activity_callbacks(_tid);
     }
@@ -735,12 +761,18 @@ hip_api_callback(uint32_t domain, uint32_t cid, const void* callback_data, void*
     {
         hip_exec_activity_callbacks(_tid);
 
-        std::tie(_cid, _parent_cid, _depth) = get_roctracer_cid_data(_tid).at(_corr_id);
+        std::tie(_cid, _parent_cid, _depth, std::ignore) =
+            get_roctracer_cid_data(_tid).at(_corr_id);
 
         if(get_use_perfetto())
         {
-            tracing::pop_perfetto_ts(category::rocm_hip{}, op_name, _ts, "end_ns",
-                                     static_cast<uint64_t>(_ts));
+            tracing::pop_perfetto_ts(
+                category::rocm_hip{}, op_name, _ts, [&](perfetto::EventContext ctx) {
+                    if(config::get_perfetto_annotations())
+                    {
+                        tracing::add_perfetto_annotation(ctx, "end_ns", _ts);
+                    }
+                });
         }
         if(get_use_timemory())
         {
@@ -775,23 +807,12 @@ hip_api_callback(uint32_t domain, uint32_t cid, const void* callback_data, void*
 
 // Activity tracing callback
 void
-hip_activity_callback(const char* begin, const char* end, void*)
+hip_activity_callback(const char* begin, const char* end, void* arg)
 {
     if(get_state() != State::Active || !trait::runtime_enabled<comp::roctracer>::get())
         return;
 
     OMNITRACE_SCOPED_THREAD_STATE(ThreadState::Internal);
-
-    static thread_local std::once_flag _once{};
-    std::call_once(_once, []() {
-        threading::offset_this_id(true);
-        if(threading::get_id() != 0)
-        {
-            sampling::block_signals();
-            threading::set_thread_name("roctracer.hip");
-            sampling::shutdown();
-        }
-    });
 
     auto&& _protect = comp::roctracer::protect_flush_activity();
     (void) _protect;
@@ -820,8 +841,12 @@ hip_activity_callback(const char* begin, const char* end, void*)
         assert(HIP_OP_ID_DISPATCH == 0);
         assert(HIP_OP_ID_COPY == 1);
         assert(HIP_OP_ID_BARRIER == 2);
-        assert(record->domain == ACTIVITY_DOMAIN_HIP_OPS);
 
+        if(record->domain == ACTIVITY_DOMAIN_HSA_OPS)
+        {
+            hsa_activity_callback(record->op, record, arg);
+            continue;
+        }
         if(record->domain != ACTIVITY_DOMAIN_HIP_OPS) continue;
         if(record->op > HIP_OP_ID_BARRIER) continue;
 
@@ -841,6 +866,7 @@ hip_activity_callback(const char* begin, const char* end, void*)
         uint64_t    _pcid           = 0;                     // parent corr_id
         int32_t     _devid          = record->device_id;     // device id
         int64_t     _queid          = record->queue_id;      // queue id
+        uintptr_t   _queue          = 0;                     // Host queue (stream)
         auto        _laps           = _indexes[_corr_id]++;  // see note #1
         const char* _name           = nullptr;
         bool        _found          = false;
@@ -864,7 +890,7 @@ hip_activity_callback(const char* begin, const char* end, void*)
         {
             auto& _cids = get_roctracer_cid_data(_tid);
             if(_cids.find(_corr_id) != _cids.end())
-                std::tie(_cid, _pcid, _depth) = _cids.at(_corr_id);
+                std::tie(_cid, _pcid, _depth, _queue) = _cids.at(_corr_id);
             else
             {
                 OMNITRACE_VERBOSE_F(3,
@@ -883,7 +909,7 @@ hip_activity_callback(const char* begin, const char* end, void*)
             auto          _verbose = []() { return get_verbose() >= 0 || get_debug(); };
             static size_t _n       = 0;
             static size_t _nmax =
-                get_env<size_t>("OMNITRACE_ROCTRACER_DISCARD_INVALID", 10);
+                get_env<size_t>("OMNITRACE_ROCTRACER_DISCARD_INVALID", 0);
             if(_nmax == 0) std::swap(_end_ns, _beg_ns);
             OMNITRACE_WARNING_IF_F(
                 _n < _nmax && _verbose(),
@@ -913,17 +939,36 @@ hip_activity_callback(const char* begin, const char* end, void*)
             if(_kernel_names.find(_name) == _kernel_names.end())
                 _kernel_names.emplace(_name, tim::demangle(_name));
 
+            auto _track_desc = [](int32_t _device_id, int64_t _queue_id) {
+                if(config::get_perfetto_roctracer_per_stream())
+                    return JOIN("", "HIP Activity Device ", _device_id, ", Queue ",
+                                _queue_id);
+                return JOIN("", "HIP Activity Device ", _device_id);
+            };
+
+            const auto _track = tracing::get_perfetto_track(
+                category::device_hip{}, _track_desc, _devid,
+                (get_perfetto_roctracer_per_stream()) ? _queid : 0);
+
             assert(_end_ns >= _beg_ns);
-            tracing::push_perfetto_ts(
-                category::device_hip{}, _kernel_names.at(_name).c_str(), _beg_ns,
-                perfetto::Flow::ProcessScoped(_cid), "begin_ns", _beg_ns, "corr_id",
-                record->correlation_id, "device", _devid, "queue", _queid, "pid",
-                record->process_id, "tid", _tid, "op", _op_id_names.at(record->op));
-            tracing::pop_perfetto_ts(category::device_hip{}, "", _end_ns, "end_ns",
-                                     _end_ns);
-            // for some reason, this is necessary to make sure very last one ends
-            tracing::pop_perfetto_ts(category::device_hip{}, "", _end_ns, "end_ns",
-                                     _end_ns);
+            tracing::push_perfetto_track(
+                category::device_hip{}, _kernel_names.at(_name).c_str(), _track, _beg_ns,
+                perfetto::Flow::ProcessScoped(_cid), [&](perfetto::EventContext ctx) {
+                    if(config::get_perfetto_annotations())
+                    {
+                        tracing::add_perfetto_annotation(ctx, "begin_ns", _beg_ns);
+                        tracing::add_perfetto_annotation(ctx, "end_ns", _end_ns);
+                        tracing::add_perfetto_annotation(ctx, "corr_id", _corr_id);
+                        tracing::add_perfetto_annotation(ctx, "device", _devid);
+                        tracing::add_perfetto_annotation(ctx, "queue", _queid);
+                        tracing::add_perfetto_annotation(ctx, "tid", _tid);
+                        tracing::add_perfetto_annotation(
+                            ctx, "stream", JOIN("", "0x", std::hex, _queue));
+                        tracing::add_perfetto_annotation(ctx, "op",
+                                                         _op_id_names.at(record->op));
+                    }
+                });
+            tracing::pop_perfetto_track(category::device_hip{}, "", _track, _end_ns);
         }
 
         if(_critical_trace)
@@ -955,6 +1000,9 @@ hip_activity_callback(const char* begin, const char* end, void*)
             _async_ops->emplace_back(std::move(_func));
         }
     }
+
+    // ensures that all the updates are written
+    if(get_use_perfetto()) ::perfetto::TrackEvent::Flush();
 }
 
 bool&

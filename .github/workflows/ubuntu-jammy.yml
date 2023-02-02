@@ -4,16 +4,22 @@ run-name: ubuntu-jammy
 on:
   push:
     branches: [ main, develop ]
+    paths-ignore:
+      - '*.md'
+      - 'source/docs/**'
   pull_request:
     branches: [ main, develop ]
+    paths-ignore:
+      - '*.md'
+      - 'source/docs/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  OMNITRACE_VERBOSE: 1
   OMNITRACE_CI: ON
+  OMNITRACE_TMPDIR: "%env{PWD}%/testing-tmp"
 
 jobs:
   ubuntu-jammy-external:
@@ -64,30 +70,40 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Install Packages
-      timeout-minutes: 10
-      run:
-        apt-get update &&
-        apt-get install -y software-properties-common &&
-        apt-get upgrade -y &&
-        apt-get install -y build-essential m4 autoconf libtool python3-pip libiberty-dev clang libomp-dev libopenmpi-dev libfabric-dev openmpi-bin environment-modules ${{ matrix.compiler }} &&
-        python3 -m pip install --upgrade pip &&
-        python3 -m pip install numpy &&
-        python3 -m pip install 'cmake==3.21.4' &&
-        for i in 6 7 8 9 10; do /opt/conda/envs/py3.${i}/bin/python -m pip install numpy perfetto dataclasses; done
+      timeout-minutes: 25
+      uses: nick-fields/retry@v2
+      with:
+        retry_wait_seconds: 30
+        timeout_minutes: 25
+        max_attempts: 5
+        command: |
+          apt-get update &&
+          apt-get install -y software-properties-common &&
+          apt-get upgrade -y &&
+          apt-get install -y build-essential m4 autoconf libtool python3-pip libiberty-dev clang libomp-dev libopenmpi-dev libfabric-dev openmpi-bin environment-modules ${{ matrix.compiler }} &&
+          python3 -m pip install --upgrade pip &&
+          python3 -m pip install numpy &&
+          python3 -m pip install 'cmake==3.21.4' &&
+          for i in 6 7 8 9 10; do /opt/conda/envs/py3.${i}/bin/python -m pip install numpy perfetto dataclasses; done
 
     - name: Install ROCm Packages
-      timeout-minutes: 10
+      timeout-minutes: 25
       if: ${{ matrix.rocm-version != '0.0' }}
-      shell: bash
-      run: |
-        wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | apt-key add -
-        echo "deb [arch=amd64] https://repo.radeon.com/rocm/apt/${{ matrix.rocm-version }}/ jammy main" | tee /etc/apt/sources.list.d/rocm.list
-        apt-get update
-        apt-get install -y {rocm-hip-sdk,roctracer-dev,rocprofiler-dev,rocm-smi-lib,rocminfo}${{ matrix.rocm-version }}.0
-        echo "/opt/rocm/bin" >> $GITHUB_PATH
-        echo "ROCM_PATH=/opt/rocm" >> $GITHUB_ENV
-        echo "LD_LIBRARY_PATH=/opt/rocm/lib:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
-        /opt/rocm/bin/hipcc -O3 -c ./examples/transpose/transpose.cpp -o /tmp/transpose.o
+      uses: nick-fields/retry@v2
+      with:
+        retry_wait_seconds: 30
+        timeout_minutes: 25
+        max_attempts: 5
+        shell: bash
+        command: |
+          wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | apt-key add -
+          echo "deb [arch=amd64] https://repo.radeon.com/rocm/apt/${{ matrix.rocm-version }}/ jammy main" | tee /etc/apt/sources.list.d/rocm.list
+          apt-get update
+          apt-get install -y {rocm-hip-sdk,roctracer-dev,rocprofiler-dev,rocm-smi-lib,rocminfo}${{ matrix.rocm-version }}.0
+          echo "/opt/rocm/bin" >> $GITHUB_PATH
+          echo "ROCM_PATH=/opt/rocm" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=/opt/rocm/lib:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
+          /opt/rocm/bin/hipcc -O3 -c ./examples/transpose/transpose.cpp -o /tmp/transpose.o
 
     - name: Test Environment Modules
       timeout-minutes: 15
@@ -122,11 +138,11 @@ jobs:
         append-tagname ${{ matrix.hidden }} hidden-viz &&
         append-tagname ${{ matrix.static-libgcc }} libgcc &&
         append-tagname ${{ matrix.static-libstdcxx }} libstdcxx &&
-        ./scripts/run-ci.sh -B build
+        python3 ./scripts/run-ci.py -B build
           --name ${{ github.repository_owner }}-${{ github.ref_name }}-ubuntu-jammy-${{ matrix.compiler }}${TAG}
           --build-jobs 2
           --site GitHub
-          --cmake-args
+          --
           -DCMAKE_C_COMPILER=$(echo '${{ matrix.compiler }}' | sed 's/+/c/g')
           -DCMAKE_CXX_COMPILER=${{ matrix.compiler }}
           -DCMAKE_BUILD_TYPE=${{ matrix.build-type }}
@@ -146,7 +162,7 @@ jobs:
           -DOMNITRACE_PYTHON_PREFIX=/opt/conda/envs
           -DOMNITRACE_PYTHON_ENVS="py3.7;py3.8;py3.9;py3.10"
           -DOMNITRACE_STRIP_LIBRARIES=${{ matrix.strip }}
-          -DOMNITRACE_MAX_THREADS=32
+          -DOMNITRACE_MAX_THREADS=64
           -DOMNITRACE_DISABLE_EXAMPLES="transpose;rccl"
           -DOMNITRACE_BUILD_NUMBER=${{ github.run_attempt }}
           -DUSE_CLANG_OMP=OFF
