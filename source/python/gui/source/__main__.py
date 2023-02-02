@@ -29,6 +29,7 @@ import dash
 import dash_bootstrap_components as dbc
 import copy
 import json
+import glob
 import pandas as pd
 
 from pathlib import Path
@@ -44,8 +45,8 @@ def causal(args):
     app = dash.Dash(__name__, external_stylesheets=[dbc.themes.CYBORG])
 
     # TODO This will become a glob to look for subfolders with coz files
-    workload_path = [os.path.join(args.path, "experiments.json")]
-    #workload_path = [os.path.join(args.path, "experiments.coz")]
+    workload_path = glob.glob(os.path.join(args.path, "*"), recursive=True)
+    # workload_path = [os.path.join(args.path, "experiments.coz")]
 
     CLI = args.cli
     new_df = parseFiles(workload_path, CLI)
@@ -54,7 +55,6 @@ def causal(args):
         columns={"speedup": "Line Speedup", "progress_speedup": "Program Speedup"}
     )
     if not CLI:
-
         runs = OrderedDict({workload_path: speedup_df})
         kernel_names = ["program1", "program2"]
         max_points = 9
@@ -78,7 +78,7 @@ def causal(args):
                 "type": "int",
             },
         ]
-        
+
         gui.build_causal_layout(
             app,
             runs,
@@ -88,9 +88,10 @@ def causal(args):
             args.verbose,
         )
         app.run_server(
-                debug=True,
-                host="0.0.0.0", 
-                port=8051)
+            debug=True if args.verbose >= 3 else False,
+            host=args.ip_address,
+            port=args.ip_port,
+        )
 
 
 def main():
@@ -103,15 +104,13 @@ def main():
     f = open(ver_path, "r")
     VER = f.read()
 
-    settings={}
+    settings = {}
     if os.path.basename(this_dir) == "source":
         settings_path = os.path.join(f"{this_dir.parent}", "settings.json")
     else:
         settings_path = os.path.join(f"{this_dir}", "settings.json")
     with open(settings_path, "r") as f:
-            settings = json.load(f)
-
-    
+        settings = json.load(f)
 
     my_parser = argparse.ArgumentParser(
         description="AMD's OmniTrace GUI",
@@ -137,24 +136,49 @@ def main():
     )
 
     my_parser.add_argument(
-        "-V", "--verbose", help="Increase output verbosity", default=0, type=int,
+        "-V",
+        "--verbose",
+        help="Increase output verbosity",
+        default=0,
+        type=int,
     )
 
     my_parser.add_argument(
         "-p",
         "--path",
-        metavar="",
+        metavar="FOLDER",
         type=str,
         dest="path",
-        #default=os.path.join(os.path.dirname(__file__), "workloads", "toy"),
-        default=settings["path"],
+        default=settings["path"]
+        if "path" in settings
+        else os.path.join(os.path.dirname(__file__), "workloads", "toy"),
         required=False,
-        help="\t\t\tSpecify path to save workload.\n\t\t\t(DEFAULT: {}/workloads/<name>)".format(
+        help="Specify path to causal profiles.\n(DEFAULT: {}/workloads/<name>)".format(
             os.getcwd()
         ),
     )
 
-    #only CLI
+    my_parser.add_argument(
+        "--ip",
+        "--ip-addr",
+        metavar="IP_ADDR",
+        type=str,
+        dest="ip_address",
+        default="0.0.0.0",
+        help="Specify the IP address for the web app.\n(DEFAULT: 0.0.0.0)",
+    )
+
+    my_parser.add_argument(
+        "--port",
+        "--ip-port",
+        metavar="PORT",
+        type=int,
+        dest="ip_port",
+        default=8051,
+        help="Specify the port number for the IP address for the web app.\n(DEFAULT: 8051)",
+    )
+
+    # only CLI
     my_parser.add_argument(
         "-c",
         "--cli",
@@ -162,7 +186,6 @@ def main():
         default=settings["cli"],
         required=False,
     )
-
 
     args = my_parser.parse_args()
     causal(args)
