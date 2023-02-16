@@ -126,12 +126,7 @@ def minPoints(name, values):
                     "display": "inline-block",
                     "list-style": "none",
                 },
-                children=[
-                    html.A(
-                        className="smoothscroll",
-                        children=["Min Points:"],
-                    ),
-                ],
+                children=[html.A(className="smoothscroll", children=["Min Points:"])],
             ),
             html.Div(
                 style={
@@ -164,15 +159,9 @@ def sortBy(name, values, filter, style_):
         children=[
             html.Div(
                 children=[
-                    html.A(
-                        className="smoothscroll",
-                        children=[name + ":"],
-                    ),
+                    html.A(className="smoothscroll", children=[name + ":"]),
                     dcc.Dropdown(
-                        list_unique(
-                            values,
-                            True,
-                        ),
+                        list_unique(values, True),
                         id=name + "-filt",
                         multi=True,
                         value=filter,
@@ -191,7 +180,6 @@ def refresh():
         className="nav-right",
         children=[
             html.Li(
-                
                 children=[
                     # Refresh button
                     html.A(
@@ -200,7 +188,7 @@ def refresh():
                             html.Button(
                                 className="refresh",
                                 children=["Refresh Data"],
-                                id = "refresh"
+                                id="refresh",
                             )
                         ],
                     )
@@ -222,16 +210,14 @@ def get_header(data, dropDownMenuItems, input_filters, kernel_names):
                             className="nav-left",
                             children=[
                                 dbc.DropdownMenu(
-                                    dropDownMenuItems,
-                                    label="Menu",
-                                    menu_variant="dark",
-                                ),
+                                    dropDownMenuItems, label="Menu", menu_variant="dark"
+                                )
                             ],
-                        ),
+                        )
                     ],
                 )
             ],
-        ),
+        )
     ]
 
     for filter in input_filters:

@@ -37,14 +37,7 @@ from yaml import parse
 from collections import OrderedDict
 
 from . import gui
-from .parser import parseFiles
-from .parser import (
-    getSpeedupData,
-    compute_speedups,
-    get_validations,
-    process_data,
-    compute_sorts,
-)
+from .parser import compute_speedups, process_data, compute_sorts
 
 
 def causal(args):
@@ -62,15 +55,19 @@ def causal(args):
     if num_speedups > 0 and args.num_points > num_speedups:
         args.num_points = num_speedups
 
+    results_df = pd.DataFrame()
     data = {}
     inp = args.path
-    with open(inp, "r") as f:
-        inp_data = json.load(f)
-        data = process_data(data, inp_data, args.experiments, args.progress_points)
+    if os.path.exists(inp):
+        with open(inp, "r") as f:
+            inp_data = json.load(f)
+            data = process_data(data, inp_data, args.experiments, args.progress_points)
 
-    results_df = compute_sorts(
-        compute_speedups(data, args.speedups, args.num_points, args.validate, args.cli)
-    )
+        results_df = compute_sorts(
+            compute_speedups(
+                data, args.speedups, args.num_points, args.validate, args.cli
+            )
+        )
 
     if not args.cli:
         runs = OrderedDict({workload_path: results_df})
@@ -81,29 +78,14 @@ def causal(args):
             {
                 "Name": "Sort by",
                 "filter": [],
-                "values": list(
-                    map(
-                        str,
-                        sortOptions,
-                    )
-                ),
+                "values": list(map(str, sortOptions)),
                 "type": "Name",
             },
-            {
-                "Name": "points",
-                "filter": [],
-                "values": max_points,
-                "type": "int",
-            },
+            {"Name": "points", "filter": [], "values": max_points, "type": "int"},
         ]
 
         gui.build_causal_layout(
-            app,
-            runs,
-            input_filters,
-            workload_path,
-            results_df,
-            args.verbose,
+            app, runs, input_filters, workload_path, results_df, args.verbose
         )
         app.run_server(
             debug=True if args.verbose >= 3 else False,
@@ -163,9 +145,7 @@ def main():
         metavar="FOLDER",
         type=str,
         dest="path",
-        default=settings["path"]
-        if "path" in settings
-        else os.path.join(os.path.dirname(__file__), "workloads", "toy"),
+        default=settings["path"] if "path" in settings else "",
         required=False,
         help="Specify path to causal profiles.\n(DEFAULT: {}/workloads/<name>)".format(
             os.getcwd()
@@ -173,11 +153,7 @@ def main():
     )
 
     my_parser.add_argument(
-        "-V",
-        "--verbose",
-        help="Increase output verbosity",
-        default=0,
-        type=int,
+        "-V", "--verbose", help="Increase output verbosity", default=0, type=int
     )
 
     my_parser.add_argument(
