@@ -362,23 +362,24 @@ def build_causal_layout(app, runs, input_filters_, path_to_dir, data_, verbose=0
             funcRegex is not None or expRegex is not None
         ):  # or funcRegex != "" or expRegex != "":
             # filter options and values
-            if funcRegex is not None:
-                p = re.compile(funcRegex, flags=0)
+            if data.empty == False:
+                if funcRegex is not None:
+                    p = re.compile(funcRegex, flags=0)
 
-                func_list = [s for s in list(data["point"].unique()) if p.match(s)]
-                print(func_list)
-            if expRegex is not None:
-                p = re.compile(expRegex, flags=0)
+                    func_list = [s for s in list(data["point"].unique()) if p.match(s)]
+                    print(func_list)
+                if expRegex is not None:
+                    p = re.compile(expRegex, flags=0)
 
-                exp_list = [
-                    s for s in list(data["progress points"].unique()) if p.match(s)
-                ]
-                print(exp_list)
+                    exp_list = [
+                        s for s in list(data["progress points"].unique()) if p.match(s)
+                    ]
+                    print(exp_list)
 
-            # change to update checklist after points selection
-            screen_data, fig1, fig2 = update_line_graph(
-                sortFilter, func_list, exp_list, data, numPoints
-            )
+            
+                screen_data, fig1, fig2 = update_line_graph(
+                    sortFilter, func_list, exp_list, data, numPoints
+                )
 
             return (divChildren, header, fig1, fig2)
 
@@ -390,10 +391,10 @@ def build_causal_layout(app, runs, input_filters_, path_to_dir, data_, verbose=0
 
             func_list = sorted(list(data.point.unique()))
             exp_list = sorted(list(data["progress points"].unique()))
-
-            screen_data, fig1, fig2 = update_line_graph(
-                sortFilter, func_list, exp_list, data, numPoints
-            )
+            if data.empty == False:
+                screen_data, fig1, fig2 = update_line_graph(
+                    sortFilter, func_list, exp_list, data, numPoints
+                )
 
             return (divChildren, header, fig1, fig2)
         else:
