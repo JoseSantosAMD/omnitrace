@@ -112,7 +112,6 @@ def sortBy(name, values, default, multi_):
         ],
     )
 
-
 def refresh():
     return html.Li(
         className="filter",

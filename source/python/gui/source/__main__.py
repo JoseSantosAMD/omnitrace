@@ -97,6 +97,13 @@ def causal(args):
         sortOptions = ["Alphabetical", "Max Speedup", "Min Speedup", "Impact"]
         input_filters = [
             {
+                "Name": "Verbosity",
+                "values": [0,1,2,3],
+                "default": 0,
+                "type": "Name",
+                "multi": False
+            },
+            {
                 "Name": "Sort by",
                 "values": sortOptions,
                 "default": "Impact",
