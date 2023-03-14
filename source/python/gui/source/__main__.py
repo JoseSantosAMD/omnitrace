@@ -84,7 +84,7 @@ def causal(args):
                 args.speedups,
                 args.num_points,
                 args.validate,
-                True if args.cli or args.verbose >= 3 else False,
+                True if args.cli or args.verbose >= 2 else False,
             )
         )
 
@@ -96,6 +96,13 @@ def causal(args):
         max_points = 9
         sortOptions = ["Alphabetical", "Max Speedup", "Min Speedup", "Impact"]
         input_filters = [
+            {
+                "Name": "Verbosity",
+                "values": [0,1,2,3],
+                "default": 0,
+                "type": "Name",
+                "multi": False
+            },
             {
                 "Name": "Sort by",
                 "values": list(map(str, sortOptions)),
