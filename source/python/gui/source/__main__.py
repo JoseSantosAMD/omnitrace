@@ -98,10 +98,10 @@ def causal(args):
         input_filters = [
             {
                 "Name": "Verbosity",
-                "values": [0,1,2,3],
-                "default": 0,
+                "values": [0, 1, 2, 3],
+                "default": args.verbose,
                 "type": "Name",
-                "multi": False
+                "multi": False,
             },
             {
                 "Name": "Sort by",
