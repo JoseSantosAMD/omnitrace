@@ -184,6 +184,15 @@ def main():
     )
 
     my_parser.add_argument(
+        "-l",
+        "--light",
+        action="store_true",
+        required=False,
+        default=settings["light"] if "light" in settings else False,
+        help="light Mode",
+    )
+
+    my_parser.add_argument(
         "-w",
         "--workload",
         metavar="FOLDER",
