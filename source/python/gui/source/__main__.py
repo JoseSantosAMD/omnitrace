@@ -101,12 +101,14 @@ def causal(args):
                 "values": list(map(str, sortOptions)),
                 "default": "Impact",
                 "type": "Name",
+                "multi": False,
             },
             {
                 "Name": "Select Workload",
                 "values": list(runs_dict.keys()),
                 "default": list(runs_dict.keys()),
                 "type": "Name",
+                "multi": True,
             },
             {"Name": "points", "filter": [], "values": max_points, "type": "int"},
         ]
