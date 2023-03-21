@@ -171,7 +171,7 @@ def main():
         default=settings["cli"] if "cli" in settings else False,
         help="Do not launch the GUI, print the causal analysis out to the console only",
     )
-    
+
     my_parser.add_argument(
         "-l",
         "--light",
