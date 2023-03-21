@@ -252,7 +252,7 @@ def build_causal_layout(
         Output("graph_select", "children"),
         [Input("nav-wrap", "children")],
         [Input("refresh", "n_clicks")],
-        [Input("Verbosity-filt", "value")],
+        #[Input("Verbosity-filt", "value")],
         [Input("Sort by-filt", "value")],
         [Input("Select Workload-filt", "value")],
         [Input("function_regex", "value")],
@@ -266,7 +266,7 @@ def build_causal_layout(
     def generate_from_filter(
         header,
         refresh,
-        verbosity,
+        #verbosity,
         sort_filter,
         workload_filter,
         func_regex,
@@ -284,7 +284,7 @@ def build_causal_layout(
         global verbose
         CLI = False
 
-        verbose = verbosity
+        #verbose = verbosity
         if type(workload_filter) == str:
             workload_filter = [workload_filter]
         if verbose >= 1:
